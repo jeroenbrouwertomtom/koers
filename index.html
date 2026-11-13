@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Koers">
+<meta name="theme-color" content="#0f1720">
+<title>Koers</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+/* Layout: full-bleed map, one floating bar on top (search or next turn), one sheet at the bottom, tools on the right edge. */
+:root{
+  --bg:#f4f6f8; --panel:#ffffff; --ink:#0f1720; --muted:#5b6876; --line:#dfe4ea;
+  --red:#df1b12; --route:#1a73e8; --route-alt:#8fa3b8; --ok:#1c8a4b; --warn:#c96a00;
+  --shadow:0 6px 24px rgba(15,23,32,.18);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  --sl:env(safe-area-inset-left,0px); --sr:env(safe-area-inset-right,0px);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0b1118; --panel:#16202b; --ink:#eef2f6; --muted:#9aa8b6; --line:#2a3644;
+  --route:#4c9bff; --route-alt:#5d6f82; --shadow:0 6px 24px rgba(0,0,0,.5); color-scheme:dark;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.35 var(--font);overscroll-behavior:none}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+#map{position:fixed;inset:0}
+
+/* top bar */
+#top{position:fixed;z-index:5;top:calc(var(--st) + 10px);left:calc(var(--sl) + 12px);right:calc(var(--sr) + 12px);display:flex;flex-direction:column;gap:8px;max-width:560px;margin:0 auto}
+#searchForm{display:flex;background:var(--panel);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+#q{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--ink);font:inherit;font-size:17px;padding:14px 16px}
+#clearQ{padding:0 16px;color:var(--muted);font-size:20px}
+#turn{background:#0f1720;color:#fff;border-radius:16px;box-shadow:var(--shadow);padding:12px 14px;display:flex;gap:14px;align-items:center}
+#turnIcon{flex:none;width:56px;height:56px;position:relative}
+#turnIcon svg{width:56px;height:56px;transition:transform .3s}
+#turnIcon b{position:absolute;inset:0;display:grid;place-items:center;font-size:17px}
+#turnDist{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
+#turnText{font-size:16px;color:#c9d3dd;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#turnWrap{min-width:0}
+
+/* right tools */
+#tools{position:fixed;z-index:4;right:calc(var(--sr) + 12px);top:calc(var(--st) + 120px);display:flex;flex-direction:column;gap:10px}
+.tool{width:46px;height:46px;border-radius:50%;background:var(--panel);box-shadow:var(--shadow);display:grid;place-items:center;font-size:19px;font-weight:700;color:var(--ink)}
+.tool svg{width:22px;height:22px}
+.tool.on{background:var(--route);color:#fff}
+.tool.off{color:var(--muted);opacity:.55}
+
+/* speed cluster */
+#speedBox{position:fixed;z-index:4;left:calc(var(--sl) + 12px);bottom:calc(var(--sb) + 118px);display:flex;align-items:center;gap:8px}
+#limit{width:54px;height:54px;border-radius:50%;background:#fff;border:6px solid var(--red);color:#111;display:grid;place-items:center;font-weight:800;font-size:19px;box-shadow:var(--shadow)}
+#speed{background:var(--panel);border-radius:14px;box-shadow:var(--shadow);padding:6px 12px;text-align:center;min-width:64px}
+#speed b{display:block;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.1}
+#speed span{font-size:11px;color:var(--muted);letter-spacing:.04em}
+#speed.over{background:var(--red);color:#fff}
+#speed.over span{color:#ffd9d6}
+
+/* bottom sheet */
+#sheet{position:fixed;z-index:5;left:0;right:0;bottom:0;background:var(--panel);border-radius:18px 18px 0 0;box-shadow:var(--shadow);padding:12px calc(var(--sr) + 14px) calc(var(--sb) + 14px) calc(var(--sl) + 14px);max-height:52%;overflow:auto;-webkit-overflow-scrolling:touch}
+#sheet h2{margin:2px 0 10px;font-size:15px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+#sheet h2 button{color:var(--route);font-weight:600}
+.row{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:11px 2px;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row .main{flex:1;min-width:0}
+.row .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r{flex:none;font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.row .r b{display:block;color:var(--ink);font-size:14px}
+.routes{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.rc{flex:1 0 118px;border:2px solid var(--line);border-radius:12px;padding:9px 11px;text-align:left}
+.rc.sel{border-color:var(--route)}
+.rc b{font-size:20px;display:block;font-variant-numeric:tabular-nums}
+.rc span{font-size:13px;color:var(--muted);display:block}
+.rc .delay{color:var(--warn)}
+.rc .free{color:var(--ok)}
+.actions{display:flex;gap:10px;margin-top:12px}
+.btn{flex:1;padding:14px;border-radius:12px;font-weight:700;font-size:16px;text-align:center}
+.btn.go{background:var(--route);color:#fff}
+.btn.ghost{background:var(--bg);color:var(--ink);flex:0 0 auto;padding-inline:16px}
+.btn.stop{background:var(--red);color:#fff;flex:0 0 auto;padding-inline:20px}
+.stats{display:flex;align-items:center;gap:14px}
+.stats div{flex:1}
+.stats b{display:block;font-size:24px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stats span{font-size:12px;color:var(--muted)}
+.destline{font-size:13px;color:var(--muted);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+#toast{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 190px);background:#0f1720;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);max-width:86%;text-align:center}
+
+/* key setup */
+#setup{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:24px}
+#setup form{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
+#setup h1{margin:0;font-size:34px;letter-spacing:-.03em}
+#setup h1 i{font-style:normal;color:var(--red)}
+#setup p{margin:0;color:var(--muted);font-size:15px}
+#keyIn{font:inherit;font-size:16px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);width:100%}
+#keyErr{color:var(--red);font-size:14px;min-height:1.2em}
+
+/* markers */
+.puck{width:38px;height:38px}
+.puck svg{width:38px;height:38px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+.pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--red);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.poi{min-width:28px;height:28px;padding:0 6px;border-radius:14px;background:#0f1720;color:#fff;border:2px solid #fff;font:700 12px var(--font);display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.maplibregl-ctrl-bottom-right{bottom:calc(var(--sb) + 96px)}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="top">
+  <form id="searchForm" autocomplete="off">
+    <input id="q" type="search" placeholder="Where to?" enterkeyhint="search" aria-label="Destination">
+    <button type="button" id="clearQ" aria-label="Clear" hidden>×</button>
+  </form>
+  <div id="turn" hidden>
+    <div id="turnIcon">
+      <svg viewBox="0 0 56 56" id="arrow"><path d="M28 6 L44 26 H33 V50 H23 V26 H12 Z" fill="#fff"/></svg>
+      <b id="turnExit"></b>
+    </div>
+    <div id="turnWrap"><div id="turnDist">–</div><div id="turnText"></div></div>
+  </div>
+</div>
+
+<div id="tools">
+  <button class="tool" id="bLocate" aria-label="Recentre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>
+  <button class="tool on" id="bTraffic" aria-label="Traffic">🚦</button>
+  <button class="tool" id="bFuel" aria-label="Fuel">⛽</button>
+  <button class="tool" id="bPark" aria-label="Parking">P</button>
+  <button class="tool" id="bMute" aria-label="Voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path id="muteWave" d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>
+</div>
+
+<div id="speedBox" hidden>
+  <div id="limit" hidden></div>
+  <div id="speed"><b id="speedVal">–</b><span>KM/H</span></div>
+</div>
+
+<div id="sheet" hidden></div>
+<div id="toast" hidden></div>
+
+<div id="setup" hidden>
+  <form id="keyForm">
+    <h1>Koers<i>.</i></h1>
+    <p id="setupText">Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.</p>
+    <input id="keyIn" placeholder="TomTom API key" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div id="keyErr"></div>
+    <button class="btn go" id="keyGo" type="submit">Start</button>
+  </form>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const API = 'https://api.tomtom.com';
+const RAD = Math.PI / 180;
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+};
+let KEY = store.get('tt_key') || '';
+const LANGS = ['en-GB', 'en-US', 'nl-NL', 'de-DE', 'fr-FR', 'es-ES', 'it-IT'];
+const NL = navigator.language || 'en-GB';
+const LANG = LANGS.find(l => l === NL) || LANGS.find(l => l.slice(0, 2) === NL.slice(0, 2)) || 'en-GB';
+const WORDS = { en: ['In', 'kilometres', 'metres'], nl: ['Over', 'kilometer', 'meter'], de: ['In', 'Kilometern', 'Metern'],
+  fr: ['Dans', 'kilomètres', 'mètres'], es: ['En', 'kilómetros', 'metros'], it: ['Tra', 'chilometri', 'metri'] }[LANG.slice(0, 2)];
+
+const TR = {
+ nl: {'Where to?':'Waar naartoe?','Results':'Resultaten','Close':'Sluiten','No matches.':'Geen resultaten.','Fuel':'Tanken','Parking':'Parkeren','nearby':'in de buurt','on your route':'op je route','detour':'omweg','To':'Naar','Cancel':'Annuleren','traffic':'verkeer','No delays':'Geen vertraging','via':'via','Simulate':'Simuleren','Start':'Start','arrival':'aankomst','to go':'te gaan','distance':'afstand','End':'Stop','simulation':'simulatie','Calculating route…':'Route berekenen…','Searching…':'Zoeken…','Nothing found nearby.':'Niets gevonden in de buurt.','No GPS position yet. Try again in a moment.':'Nog geen gps-positie. Probeer het zo opnieuw.','Off route. Recalculating…':'Van de route af. Opnieuw berekenen…','Faster route found. Saves':'Snellere route gevonden. Scheelt','Adding stop…':'Tussenstop toevoegen…','Location is blocked. Allow it in Settings, Safari, Location.':'Locatie is geblokkeerd. Sta het toe in Instellingen, Safari, Locatie.','Waiting for GPS…':'Wachten op gps…','You have arrived.':'Je bent gearriveerd.','This browser has no location access.':'Deze browser heeft geen toegang tot je locatie.','No route found.':'Geen route gevonden.','The map library did not load. Check your connection and reload.':'De kaart kon niet laden. Controleer je verbinding en laad opnieuw.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Autonavigatie met kaarten, zoeken, routes en live verkeer van TomTom. Plak je TomTom API-sleutel één keer. Die blijft op deze telefoon.','TomTom API key':'TomTom API-sleutel','Checking…':'Controleren…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Deze sleutel is geweigerd. Controleer of Search, Routing, Map Display en Traffic aanstaan.','Could not reach TomTom. Check your connection.':'TomTom is niet bereikbaar. Controleer je verbinding.'},
+ de: {'Where to?':'Wohin?','Results':'Ergebnisse','Close':'Schließen','No matches.':'Keine Treffer.','Fuel':'Tanken','Parking':'Parken','nearby':'in der Nähe','on your route':'auf deiner Route','detour':'Umweg','To':'Nach','Cancel':'Abbrechen','traffic':'Verkehr','No delays':'Keine Verzögerung','via':'über','Simulate':'Simulieren','Start':'Start','arrival':'Ankunft','to go':'verbleibend','distance':'Entfernung','End':'Beenden','simulation':'Simulation','Calculating route…':'Route wird berechnet…','Searching…':'Suche…','Nothing found nearby.':'Nichts in der Nähe gefunden.','No GPS position yet. Try again in a moment.':'Noch keine GPS-Position. Gleich noch einmal versuchen.','Off route. Recalculating…':'Route verlassen. Neuberechnung…','Faster route found. Saves':'Schnellere Route gefunden. Spart','Adding stop…':'Zwischenstopp wird hinzugefügt…','Location is blocked. Allow it in Settings, Safari, Location.':'Standort ist blockiert. In Einstellungen, Safari, Standort erlauben.','Waiting for GPS…':'Warte auf GPS…','You have arrived.':'Du hast dein Ziel erreicht.','This browser has no location access.':'Dieser Browser hat keinen Standortzugriff.','No route found.':'Keine Route gefunden.','The map library did not load. Check your connection and reload.':'Die Karte konnte nicht geladen werden. Verbindung prüfen und neu laden.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Autonavigation mit Karten, Suche, Routen und Live-Verkehr von TomTom. Füge deinen TomTom API-Schlüssel einmal ein. Er bleibt auf diesem Telefon.','TomTom API key':'TomTom API-Schlüssel','Checking…':'Prüfe…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Dieser Schlüssel wurde abgelehnt. Prüfe, ob Search, Routing, Map Display und Traffic aktiviert sind.','Could not reach TomTom. Check your connection.':'TomTom ist nicht erreichbar. Verbindung prüfen.'},
+ fr: {'Where to?':'Où allez-vous ?','Results':'Résultats','Close':'Fermer','No matches.':'Aucun résultat.','Fuel':'Carburant','Parking':'Parking','nearby':'à proximité','on your route':'sur votre trajet','detour':'détour','To':'Vers','Cancel':'Annuler','traffic':'trafic','No delays':'Aucun retard','via':'via','Simulate':'Simuler','Start':'Démarrer','arrival':'arrivée','to go':'restant','distance':'distance','End':'Arrêter','simulation':'simulation','Calculating route…':'Calcul de l’itinéraire…','Searching…':'Recherche…','Nothing found nearby.':'Rien trouvé à proximité.','No GPS position yet. Try again in a moment.':'Pas encore de position GPS. Réessayez dans un instant.','Off route. Recalculating…':'Hors itinéraire. Recalcul…','Faster route found. Saves':'Itinéraire plus rapide trouvé. Gain de','Adding stop…':'Ajout de l’étape…','Location is blocked. Allow it in Settings, Safari, Location.':'La localisation est bloquée. Autorisez-la dans Réglages, Safari, Position.','Waiting for GPS…':'En attente du GPS…','You have arrived.':'Vous êtes arrivé.','This browser has no location access.':'Ce navigateur n’a pas accès à la localisation.','No route found.':'Aucun itinéraire trouvé.','The map library did not load. Check your connection and reload.':'La carte n’a pas pu se charger. Vérifiez votre connexion et rechargez.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navigation auto avec les cartes, la recherche, les itinéraires et le trafic en direct de TomTom. Collez votre clé API TomTom une fois. Elle reste sur ce téléphone.','TomTom API key':'Clé API TomTom','Checking…':'Vérification…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Cette clé a été refusée. Vérifiez que Search, Routing, Map Display et Traffic sont activés.','Could not reach TomTom. Check your connection.':'TomTom est injoignable. Vérifiez votre connexion.'},
+ es: {'Where to?':'¿Adónde vas?','Results':'Resultados','Close':'Cerrar','No matches.':'Sin resultados.','Fuel':'Combustible','Parking':'Aparcamiento','nearby':'cerca','on your route':'en tu ruta','detour':'desvío','To':'A','Cancel':'Cancelar','traffic':'tráfico','No delays':'Sin retrasos','via':'vía','Simulate':'Simular','Start':'Iniciar','arrival':'llegada','to go':'restante','distance':'distancia','End':'Terminar','simulation':'simulación','Calculating route…':'Calculando ruta…','Searching…':'Buscando…','Nothing found nearby.':'No se encontró nada cerca.','No GPS position yet. Try again in a moment.':'Aún no hay posición GPS. Inténtalo en un momento.','Off route. Recalculating…':'Fuera de ruta. Recalculando…','Faster route found. Saves':'Ruta más rápida encontrada. Ahorra','Adding stop…':'Añadiendo parada…','Location is blocked. Allow it in Settings, Safari, Location.':'La ubicación está bloqueada. Permítela en Ajustes, Safari, Ubicación.','Waiting for GPS…':'Esperando GPS…','You have arrived.':'Has llegado.','This browser has no location access.':'Este navegador no tiene acceso a la ubicación.','No route found.':'No se encontró ninguna ruta.','The map library did not load. Check your connection and reload.':'El mapa no se pudo cargar. Comprueba la conexión y recarga.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navegación para coche con mapas, búsqueda, rutas y tráfico en directo de TomTom. Pega tu clave API de TomTom una vez. Se queda en este teléfono.','TomTom API key':'Clave API de TomTom','Checking…':'Comprobando…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Esta clave fue rechazada. Comprueba que Search, Routing, Map Display y Traffic estén activados.','Could not reach TomTom. Check your connection.':'No se pudo conectar con TomTom. Comprueba la conexión.'},
+ it: {'Where to?':'Dove vai?','Results':'Risultati','Close':'Chiudi','No matches.':'Nessun risultato.','Fuel':'Carburante','Parking':'Parcheggio','nearby':'nelle vicinanze','on your route':'lungo il percorso','detour':'deviazione','To':'A','Cancel':'Annulla','traffic':'traffico','No delays':'Nessun ritardo','via':'via','Simulate':'Simula','Start':'Avvia','arrival':'arrivo','to go':'rimanente','distance':'distanza','End':'Termina','simulation':'simulazione','Calculating route…':'Calcolo del percorso…','Searching…':'Ricerca…','Nothing found nearby.':'Niente trovato nelle vicinanze.','No GPS position yet. Try again in a moment.':'Ancora nessuna posizione GPS. Riprova tra poco.','Off route. Recalculating…':'Fuori percorso. Ricalcolo…','Faster route found. Saves':'Trovato un percorso più veloce. Risparmi','Adding stop…':'Aggiunta della tappa…','Location is blocked. Allow it in Settings, Safari, Location.':'La posizione è bloccata. Consentila in Impostazioni, Safari, Posizione.','Waiting for GPS…':'In attesa del GPS…','You have arrived.':'Sei arrivato.','This browser has no location access.':'Questo browser non ha accesso alla posizione.','No route found.':'Nessun percorso trovato.','The map library did not load. Check your connection and reload.':'La mappa non si è caricata. Controlla la connessione e ricarica.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navigazione per auto con mappe, ricerca, percorsi e traffico in tempo reale di TomTom. Incolla la tua chiave API TomTom una volta. Resta su questo telefono.','TomTom API key':'Chiave API TomTom','Checking…':'Verifica…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Questa chiave è stata rifiutata. Verifica che Search, Routing, Map Display e Traffic siano attivi.','Could not reach TomTom. Check your connection.':'TomTom non è raggiungibile. Controlla la connessione.'}
+};
+const L = s => (TR[LANG.slice(0, 2)] || {})[s] ?? s;
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+document.documentElement.lang = LANG;
+
+const S = { mode: 'browse', pos: null, heading: 0, speed: null, acc: null, dest: null, stops: [], routes: [], sel: 0,
+  route: null, idx: 0, along: 0, following: true, muted: store.get('muted') === '1', traffic: true, vector: false,
+  offCount: 0, rerouting: false, said: {}, lastRefresh: 0, sim: null, pois: [], poiKind: null, gotFix: false };
+let map, puck, destMarker, poiMarkers = [], wake = null, searchTimer = 0, searchSeq = 0, toastTimer = 0;
+
+/* ---------- helpers ---------- */
+const base = () => S.mode === 'pois' ? S.prevMode : S.mode;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function hav(a, b){
+  const dLat = (b[1] - a[1]) * RAD, dLon = (b[0] - a[0]) * RAD;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * RAD) * Math.cos(b[1] * RAD) * Math.sin(dLon / 2) ** 2;
+  return 12742000 * Math.asin(Math.sqrt(h));
+}
+function bearing(a, b){
+  const y = Math.sin((b[0] - a[0]) * RAD) * Math.cos(b[1] * RAD);
+  const x = Math.cos(a[1] * RAD) * Math.sin(b[1] * RAD) - Math.sin(a[1] * RAD) * Math.cos(b[1] * RAD) * Math.cos((b[0] - a[0]) * RAD);
+  return (Math.atan2(y, x) / RAD + 360) % 360;
+}
+const fmtDist = m => m < 1000 ? Math.max(10, Math.round(m / 10) * 10) + ' m' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + ' km';
+function fmtDur(s){ const m = Math.max(1, Math.round(s / 60)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); }
+const clock = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function toast(msg, ms = 3500){ const t = $('toast'); t.textContent = L(msg); t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms); }
+
+async function tt(path, params = {}, opts){
+  const u = new URL(API + path);
+  u.searchParams.set('key', KEY);
+  for (const [k, v] of Object.entries(params)){
+    if (Array.isArray(v)) v.forEach(x => u.searchParams.append(k, x));
+    else if (v != null) u.searchParams.set(k, v);
+  }
+  const r = await fetch(u, opts);
+  if (!r.ok){ const e = new Error('TomTom request failed (' + r.status + ')'); e.status = r.status; throw e; }
+  return r.json();
+}
+
+/* ---------- voice ---------- */
+function say(text){
+  if (S.muted || !text || !('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = LANG; u.rate = 1; speechSynthesis.speak(u); } catch {}
+}
+function spokenDist(d){
+  if (d >= 950){ const km = Math.round(d / 500) / 2; return km + ' ' + WORDS[1]; }
+  return Math.max(50, Math.round(d / 50) * 50) + ' ' + WORDS[2];
+}
+const lowerFirst = s => s ? s[0].toLowerCase() + s.slice(1) : s;
+
+/* ---------- map ---------- */
+function rasterStyle(dark){
+  const t = p => [`${API}${p}/{z}/{x}/{y}.png?tileSize=256&key=${KEY}`];
+  return { version: 8,
+    sources: {
+      base: { type: 'raster', tiles: t(`/map/1/tile/basic/${dark ? 'night' : 'main'}`), tileSize: 256, attribution: '© TomTom' },
+      flow: { type: 'raster', tiles: t('/traffic/map/4/tile/flow/relative0'), tileSize: 256 },
+      inc: { type: 'raster', tiles: t('/traffic/map/4/tile/incidents/s3'), tileSize: 256 }
+    },
+    layers: [ { id: 'base', type: 'raster', source: 'base' }, { id: 'tt-flow', type: 'raster', source: 'flow' }, { id: 'tt-inc', type: 'raster', source: 'inc' } ] };
+}
+async function initMap(){
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches, v = dark ? 'dark' : 'light';
+  const url = `${API}/style/1/style/22.2.1-*?map=2/basic_street-${v}-driving&traffic_flow=2/flow_relative-${v}&traffic_incidents=2/incidents_${v}&poi=2/poi_${v}&key=${KEY}`;
+  let style;
+  try { const r = await fetch(url); if (!r.ok) throw new Error(); style = await r.json(); S.vector = true; }
+  catch { style = rasterStyle(dark); }
+  map = new maplibregl.Map({ container: 'map', style, center: [5.3878, 52.1326], zoom: 11, attributionControl: false, maxPitch: 60,
+    transformRequest: u => (u.startsWith(API) && !/[?&]key=/.test(u)) ? { url: u + (u.includes('?') ? '&' : '?') + 'key=' + KEY } : { url: u } });
+  map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© TomTom' }), 'bottom-right');
+  map.on('load', () => {
+    map.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'r-alt', type: 'line', source: 'route', filter: ['==', ['get', 'k'], 'alt'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#8fa3b8', 'line-width': 6, 'line-opacity': .8 } });
+    map.addLayer({ id: 'r-case', type: 'line', source: 'route', filter: ['==', ['get', 'k'], 'main'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#0b3d91', 'line-width': 11 } });
+    map.addLayer({ id: 'r-main', type: 'line', source: 'route', filter: ['==', ['get', 'k'], 'main'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#2f8cff', 'line-width': 7 } });
+    map.on('click', 'r-alt', e => { const i = e.features[0].properties.i; if (S.mode === 'preview') selectRoute(i); });
+    drawRoutes();
+  });
+  map.on('dragstart', () => { if (S.following){ S.following = false; $('bLocate').classList.add('on'); } });
+  const el = document.createElement('div'); el.className = 'puck';
+  el.innerHTML = '<svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="17" fill="#fff"/><path d="M19 7 L28 28 L19 23 L10 28 Z" fill="#1a73e8"/></svg>';
+  puck = new maplibregl.Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'map' });
+}
+function setTraffic(on){
+  S.traffic = on; $('bTraffic').classList.toggle('on', on); $('bTraffic').classList.toggle('off', !on);
+  if (!map || !map.isStyleLoaded()) return;
+  for (const l of map.getStyle().layers){
+    if (/^r-/.test(l.id)) continue;
+    if (/traffic|flow|incident|^tt-/i.test(l.id + ' ' + (l.source || ''))) map.setLayoutProperty(l.id, 'visibility', on ? 'visible' : 'none');
+  }
+}
+function drawRoutes(){
+  const src = map && map.getSource && map.getSource('route'); if (!src) return;
+  const feats = [];
+  if (base() === 'preview') S.routes.forEach((r, i) => { if (i !== S.sel) feats.push({ type: 'Feature', properties: { k: 'alt', i }, geometry: { type: 'LineString', coordinates: r.pts } }); });
+  const r = base() === 'nav' ? S.route : S.routes[S.sel];
+  if (r && (base() === 'preview' || base() === 'nav')){
+    let coords = r.pts;
+    if (base() === 'nav' && S.snapPt) coords = [S.snapPt, ...r.pts.slice(S.idx + 1)];
+    if (coords.length > 1) feats.push({ type: 'Feature', properties: { k: 'main' }, geometry: { type: 'LineString', coordinates: coords } });
+  }
+  src.setData({ type: 'FeatureCollection', features: feats });
+}
+function fitRoute(r){
+  const b = new maplibregl.LngLatBounds(); r.pts.forEach(p => b.extend(p));
+  S.following = false; $('bLocate').classList.add('on');
+  map.fitBounds(b, { padding: { top: 110, bottom: 300, left: 40, right: 70 }, pitch: 0, bearing: 0, duration: 700 });
+}
+function setDestMarker(){
+  if (destMarker){ destMarker.remove(); destMarker = null; }
+  if (S.dest){ const e = document.createElement('div'); e.className = 'pin'; destMarker = new maplibregl.Marker({ element: e, anchor: 'bottom-left', offset: [0, 0] }).setLngLat([S.dest.lon, S.dest.lat]).addTo(map); }
+}
+function clearPois(){ poiMarkers.forEach(m => m.remove()); poiMarkers = []; S.pois = []; S.poiKind = null; $('bFuel').classList.remove('on'); $('bPark').classList.remove('on'); }
+
+/* ---------- position ---------- */
+function startGps(){
+  if (!navigator.geolocation){ toast('This browser has no location access.'); return; }
+  navigator.geolocation.watchPosition(p => {
+    if (S.sim) return;
+    const c = p.coords;
+    onFix({ lat: c.latitude, lon: c.longitude, speed: c.speed, heading: c.heading, acc: c.accuracy });
+  }, e => { if (!S.gotFix) toast(e.code === 1 ? 'Location is blocked. Allow it in Settings, Safari, Location.' : 'Waiting for GPS…', 6000); },
+  { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
+}
+function onFix(f){
+  const first = !S.gotFix; S.gotFix = true;
+  S.pos = { lat: f.lat, lon: f.lon }; S.acc = f.acc;
+  S.speed = (f.speed != null && f.speed >= 0) ? f.speed : null;
+  if (f.heading != null && !isNaN(f.heading) && (S.speed || 0) > 1.5) S.heading = f.heading;
+  let shown = [f.lon, f.lat];
+  if (base() === 'nav' && S.route) shown = navTick() || shown;
+  puck.setLngLat(shown).setRotation(S.heading).addTo(map);
+  $('speedVal').textContent = S.speed == null ? '–' : Math.round(S.speed * 3.6);
+  if (base() === 'nav' && S.following){
+    const v = S.speed || 0, zoom = v < 8 ? 17 : v < 17 ? 16.3 : v < 28 ? 15.5 : 14.8;
+    map.easeTo({ center: shown, bearing: S.heading, pitch: 55, zoom, duration: 950, easing: t => t, padding: { top: 260, bottom: 0, left: 0, right: 0 } });
+  } else if (first || (S.following && S.mode === 'browse')){
+    map.easeTo({ center: shown, zoom: first ? 14 : map.getZoom(), duration: 600 });
+  }
+}
+
+/* ---------- search ---------- */
+async function runSearch(q){
+  const seq = ++searchSeq;
+  try {
+    const p = { typeahead: true, limit: 8, language: LANG };
+    if (S.pos){ p.lat = S.pos.lat; p.lon = S.pos.lon; }
+    const j = await tt(`/search/2/search/${encodeURIComponent(q)}.json`, p);
+    if (seq !== searchSeq) return;
+    S.results = (j.results || []).map(placeOf);
+    S.mode = 'results'; render();
+  } catch (e){ if (seq === searchSeq) toast(e.message); }
+}
+function placeOf(r){
+  return { name: r.poi?.name || r.address?.freeformAddress || 'Place', addr: r.poi ? (r.address?.freeformAddress || '') : [r.address?.municipality, r.address?.country].filter(Boolean).join(', '),
+    lat: r.position.lat, lon: r.position.lon, dist: r.dist, detour: r.detourTime, src: r.dataSources || null };
+}
+
+/* ---------- routing ---------- */
+function prep(r){
+  const pts = []; r.legs.forEach(l => l.points.forEach(p => pts.push([p.longitude, p.latitude])));
+  const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + hav(pts[i - 1], pts[i]));
+  const len = cum[cum.length - 1];
+  const ins = (r.guidance?.instructions || []).map(i => ({ ...i, off: cum[Math.min(i.pointIndex ?? 0, pts.length - 1)] ?? i.routeOffsetInMeters }));
+  const limits = (r.sections || []).filter(s => s.sectionType === 'SPEED_LIMIT' && s.maxSpeedLimitInKmh);
+  const tl = [[0, 0], ...ins.filter(i => i.travelTimeInSeconds > 0).map(i => [i.off, i.travelTimeInSeconds]), [len, r.summary.travelTimeInSeconds]].sort((a, b) => a[0] - b[0]);
+  const wp = ins.filter(i => /WAYPOINT/.test(i.maneuver || '') || i.instructionType === 'LOCATION_WAYPOINT').map(i => i.off);
+  return { pts, cum, len, ins, limits, tl, wp, sum: r.summary };
+}
+async function calcRoute(alts){
+  const locs = [S.pos, ...S.stops, S.dest].map(p => p.lat.toFixed(6) + ',' + p.lon.toFixed(6)).join(':');
+  const params = { traffic: true, travelMode: 'car', routeType: 'fastest', instructionsType: 'text', language: LANG,
+    sectionType: ['speedLimit', 'traffic'], maxAlternatives: S.stops.length ? 0 : alts };
+  if ((S.speed || 0) > 3) params.vehicleHeading = Math.round(S.heading) % 360;
+  const path = `/routing/1/calculateRoute/${locs}/json`;
+  let j;
+  try { j = await tt(path, params); }
+  catch (e){ if (e.status !== 400) throw e; params.sectionType = ['traffic']; j = await tt(path, params); }
+  if (!j.routes?.length) throw new Error('No route found.');
+  return j.routes.map(prep);
+}
+async function planTo(place){
+  if (!S.pos){ toast('No GPS position yet. Try again in a moment.'); return; }
+  S.dest = place; S.stops = []; clearPois(); setDestMarker();
+  $('q').value = place.name; $('clearQ').hidden = false; $('q').blur();
+  toast('Calculating route…', 8000);
+  try {
+    S.routes = await calcRoute(2); S.sel = 0; S.mode = 'preview'; $('toast').hidden = true;
+    render(); drawRoutes(); fitRoute(S.routes[0]);
+  } catch (e){ toast(e.message); S.mode = 'browse'; render(); }
+}
+function selectRoute(i){ S.sel = +i; render(); drawRoutes(); }
+function timeAt(rt, along){
+  const tl = rt.tl; let i = 1; while (i < tl.length - 1 && tl[i][0] < along) i++;
+  const [a0, t0] = tl[i - 1], [a1, t1] = tl[i];
+  return a1 > a0 ? t0 + (t1 - t0) * Math.min(1, Math.max(0, (along - a0) / (a1 - a0))) : t1;
+}
+function snap(rt, p, from, wide){
+  const k = Math.cos(p[1] * RAD) * 111320, m = 110540, n = rt.pts.length - 1;
+  const a = wide ? 0 : Math.max(0, from - 3), b = wide ? n : Math.min(n, from + 120);
+  let best = { d: 1e9, idx: from, t: 0 };
+  for (let i = a; i < b; i++){
+    const ax = (rt.pts[i][0] - p[0]) * k, ay = (rt.pts[i][1] - p[1]) * m, bx = (rt.pts[i + 1][0] - p[0]) * k, by = (rt.pts[i + 1][1] - p[1]) * m;
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    let t = l2 ? -(ax * dx + ay * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(ax + t * dx, ay + t * dy);
+    if (d < best.d) best = { d, idx: i, t };
+  }
+  const i = Math.min(best.idx, n - 1), A = rt.pts[i], B = rt.pts[i + 1] || A;
+  best.idx = i; best.along = rt.cum[i] + best.t * ((rt.cum[i + 1] ?? rt.cum[i]) - rt.cum[i]);
+  best.pt = [A[0] + (B[0] - A[0]) * best.t, A[1] + (B[1] - A[1]) * best.t];
+  return best;
+}
+function pointAt(rt, along){
+  let i = 0; while (i < rt.cum.length - 2 && rt.cum[i + 1] < along) i++;
+  const seg = rt.cum[i + 1] - rt.cum[i], t = seg ? Math.min(1, (along - rt.cum[i]) / seg) : 0, A = rt.pts[i], B = rt.pts[i + 1];
+  return { pt: [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t], idx: i, brg: bearing(A, B) };
+}
+
+/* ---------- navigation ---------- */
+async function startNav(simulate){
+  S.route = S.routes[S.sel]; S.idx = 0; S.along = 0; S.said = {}; S.offCount = 0; S.snapPt = null;
+  S.mode = 'nav'; S.following = true; $('bLocate').classList.remove('on'); S.lastRefresh = Date.now();
+  render(); drawRoutes();
+  const dep = S.route.ins[0]; say(dep?.message || '');
+  try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch {}
+  if (simulate) startSim(); else if (S.pos) onFix({ lat: S.pos.lat, lon: S.pos.lon, speed: S.speed, heading: null, acc: S.acc });
+}
+function stopNav(msg){
+  stopSim(); S.mode = 'browse'; S.route = null; S.routes = []; S.dest = null; S.stops = []; S.snapPt = null;
+  setDestMarker(); clearPois(); drawRoutes(); $('q').value = ''; $('clearQ').hidden = true;
+  try { wake && wake.release(); } catch {} wake = null;
+  map.easeTo({ pitch: 0, bearing: 0, zoom: 14, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 600 });
+  render(); if (msg) toast(msg, 5000);
+}
+function navTick(){
+  const rt = S.route, p = [S.pos.lon, S.pos.lat];
+  let s = snap(rt, p, S.idx, false); if (s.d > 80) s = snap(rt, p, 0, true);
+  const tol = Math.max(50, (S.acc || 0) * 1.5);
+  if (s.d > tol){
+    if (++S.offCount >= 4 && !S.sim && (S.acc || 0) < 80) reroute(true);
+    updateNavUi(); return null;
+  }
+  S.offCount = 0; S.idx = s.idx; S.along = s.along; S.snapPt = s.pt;
+  if ((S.speed || 0) <= 1.5 || S.sim) S.heading = bearing(rt.pts[s.idx], rt.pts[s.idx + 1] || rt.pts[s.idx]);
+  while (rt.wp.length && S.along > rt.wp[0] + 20){ rt.wp.shift(); S.stops.shift(); }
+  if (rt.len - S.along < 30){ const last = rt.ins[rt.ins.length - 1]; say(last?.message || ''); stopNav(last?.message || L('You have arrived.')); return s.pt; }
+  drawRoutes(); updateNavUi();
+  if (Date.now() - S.lastRefresh > 240000) reroute(false);
+  return s.pt;
+}
+function updateNavUi(){
+  const rt = S.route; if (!rt) return;
+  const n = rt.ins.findIndex(i => i.off > S.along + 5), ins = n >= 0 ? rt.ins[n] : null, v = S.speed || 0;
+  if (ins){
+    const d = ins.off - S.along;
+    $('turnDist').textContent = fmtDist(d);
+    $('turnText').textContent = ins.street || (ins.roadNumbers || []).join(' / ') || ins.message || '';
+    setArrow(ins); announce(ins, n, d, v);
+  }
+  const lim = rt.limits.find(l => S.idx >= l.startPointIndex && S.idx < l.endPointIndex);
+  $('limit').hidden = !lim; if (lim) $('limit').textContent = lim.maxSpeedLimitInKmh;
+  $('speed').classList.toggle('over', !!lim && S.speed != null && S.speed * 3.6 > lim.maxSpeedLimitInKmh + 3);
+  const left = rt.sum.travelTimeInSeconds - timeAt(rt, S.along);
+  const e = $('nEta'); if (e){ e.textContent = clock(new Date(Date.now() + left * 1000)); $('nTime').textContent = fmtDur(left); $('nDist').textContent = fmtDist(rt.len - S.along); }
+}
+function setArrow(ins){
+  const m = ins.maneuver || '', ang = { STRAIGHT: 0, KEEP_RIGHT: 25, BEAR_RIGHT: 45, TURN_RIGHT: 90, SHARP_RIGHT: 135, KEEP_LEFT: -25, BEAR_LEFT: -45, TURN_LEFT: -90, SHARP_LEFT: -135,
+    MAKE_UTURN: 180, ENTER_MOTORWAY: 0, ENTER_FREEWAY: 0, ENTER_HIGHWAY: 0, TAKE_EXIT: 30, MOTORWAY_EXIT_LEFT: -30, MOTORWAY_EXIT_RIGHT: 30,
+    ROUNDABOUT_RIGHT: 90, ROUNDABOUT_LEFT: -90, ROUNDABOUT_CROSS: 0, ROUNDABOUT_BACK: 180, ARRIVE_LEFT: -90, ARRIVE_RIGHT: 90, WAYPOINT_LEFT: -90, WAYPOINT_RIGHT: 90 }[m] ?? 0;
+  $('arrow').style.transform = `rotate(${ang}deg)`;
+  const round = /ROUNDABOUT/.test(m);
+  $('turnExit').textContent = round && ins.roundaboutExitNumber ? ins.roundaboutExitNumber : '';
+  $('turnExit').style.color = '#0f1720'; $('turnExit').style.paddingTop = '14px';
+}
+function announce(ins, n, d, v){
+  const st = S.said[n] || (S.said[n] = {}), far = v > 22 ? 2000 : 800, mid = v > 22 ? 600 : 250, now = Math.max(35, v * 3.5), msg = ins.message || '';
+  if (d <= now){ if (!st.now){ st.now = st.mid = st.far = 1; say(msg); } }
+  else if (d <= mid){ if (!st.mid){ st.mid = st.far = 1; say(`${WORDS[0]} ${spokenDist(d)}, ${lowerFirst(msg)}`); } }
+  else if (d <= far){ if (!st.far){ st.far = 1; if (d > mid * 1.6) say(`${WORDS[0]} ${spokenDist(d)}, ${lowerFirst(msg)}`); } }
+}
+async function reroute(forced){
+  if (S.rerouting || S.mode !== 'nav') return;
+  S.rerouting = true; S.lastRefresh = Date.now();
+  if (forced) toast('Off route. Recalculating…');
+  try {
+    const r = (await calcRoute(0))[0];
+    if (S.mode !== 'nav') return;
+    const left = S.route.sum.travelTimeInSeconds - timeAt(S.route, S.along);
+    const saved = left - r.sum.travelTimeInSeconds;
+    if (forced || saved > 120){
+      S.route = r; S.routes = [r]; S.sel = 0; S.idx = 0; S.along = 0; S.said = {}; S.offCount = 0;
+      if (!forced) toast(`${L('Faster route found. Saves')} ${fmtDur(saved)}.`, 6000);
+      drawRoutes(); updateNavUi();
+    }
+  } catch (e){ if (forced) toast(e.message); }
+  finally { S.rerouting = false; S.offCount = 0; }
+}
+function startSim(){
+  S.sim = { along: 0 };
+  S.sim.timer = setInterval(() => {
+    const rt = S.route; if (!rt || S.mode !== 'nav'){ stopSim(); return; }
+    const here = pointAt(rt, S.sim.along), lim = rt.limits.find(l => here.idx >= l.startPointIndex && here.idx < l.endPointIndex);
+    const v = ((lim?.maxSpeedLimitInKmh || 50) * 0.95) / 3.6;
+    S.sim.along = Math.min(rt.len, S.sim.along + v);
+    const nx = pointAt(rt, S.sim.along);
+    onFix({ lat: nx.pt[1], lon: nx.pt[0], speed: v, heading: nx.brg, acc: 5 });
+  }, 1000);
+}
+function stopSim(){ if (S.sim){ clearInterval(S.sim.timer); S.sim = null; } }
+
+/* ---------- fuel and parking ---------- */
+async function findPois(kind){
+  if (!S.pos){ toast('No GPS position yet. Try again in a moment.'); return; }
+  if (S.poiKind === kind){ clearPois(); if (S.mode === 'pois'){ S.mode = S.prevMode || 'browse'; render(); } return; }
+  clearPois(); S.poiKind = kind; $(kind === 'fuel' ? 'bFuel' : 'bPark').classList.add('on');
+  const cat = kind === 'fuel' ? '7311' : '7369,7313', word = kind === 'fuel' ? 'petrol station' : 'parking';
+  const rt = S.mode === 'nav' ? S.route : (S.mode === 'preview' ? S.routes[S.sel] : null);
+  toast('Searching…', 8000);
+  try {
+    let j;
+    if (rt){
+      let pts = rt.pts.slice(S.mode === 'nav' ? S.idx : 0);
+      if (kind === 'park') pts = pts.slice(-Math.max(2, Math.ceil(pts.length * 0.15)));
+      const step = Math.max(1, Math.ceil(pts.length / 300)), body = { route: { points: pts.filter((_, i) => i % step === 0 || i === pts.length - 1).map(p => ({ lat: p[1], lon: p[0] })) } };
+      j = await tt(`/search/2/searchAlongRoute/${encodeURIComponent(word)}.json`, { maxDetourTime: 600, categorySet: cat, limit: 12, language: LANG },
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } else {
+      j = await tt('/search/2/nearbySearch/.json', { lat: S.pos.lat, lon: S.pos.lon, radius: 8000, categorySet: cat, limit: 12, language: LANG });
+    }
+    $('toast').hidden = true;
+    S.pois = (j.results || []).map(placeOf);
+    if (!S.pois.length){ toast('Nothing found nearby.'); clearPois(); return; }
+    S.pois.forEach((p, i) => {
+      const e = document.createElement('div'); e.className = 'poi'; e.textContent = kind === 'fuel' ? 'F' : 'P';
+      e.onclick = () => pickPoi(i);
+      poiMarkers.push(new maplibregl.Marker({ element: e }).setLngLat([p.lon, p.lat]).addTo(map));
+    });
+    if (S.mode !== 'pois') S.prevMode = S.mode;
+    S.mode = 'pois'; render(); enrichPois(kind);
+  } catch (e){ toast(e.message); clearPois(); }
+}
+async function enrichPois(kind){
+  await Promise.all(S.pois.slice(0, 8).map(async (p, i) => {
+    try {
+      if (kind === 'fuel' && p.src?.fuelPrice?.id){
+        const j = await tt('/search/2/fuelPrice.json', { fuelPrice: p.src.fuelPrice.id });
+        p.extra = (j.fuels || []).slice(0, 2).map(f => `${f.type} ${f.price?.[0]?.value ?? ''}`).join(' · ');
+      } else if (kind === 'park' && p.src?.parkingAvailability?.id){
+        const j = await tt('/search/2/parkingAvailability.json', { parkingAvailability: p.src.parkingAvailability.id });
+        const c = j.statuses?.[0]?.current; if (c) p.extra = c.emptySpots != null ? c.emptySpots + ' free' : (c.availability || '');
+      }
+      const el = document.querySelector(`[data-poi="${i}"] .s`); if (el && p.extra) el.textContent = p.extra + (p.addr ? ' · ' + p.addr : '');
+    } catch {}
+  }));
+}
+async function pickPoi(i){
+  const p = S.pois[i], back = S.prevMode; clearPois();
+  if ((back === 'nav' || back === 'preview') && S.dest){
+    S.stops = [p]; toast('Adding stop…', 8000);
+    try {
+      const rs = await calcRoute(0); $('toast').hidden = true;
+      S.routes = rs; S.sel = 0; S.mode = back;
+      if (back === 'nav'){ S.route = rs[0]; S.idx = 0; S.along = 0; S.said = {}; S.lastRefresh = Date.now(); }
+      render(); drawRoutes(); if (back === 'preview') fitRoute(rs[0]);
+    } catch (e){ S.stops = []; S.mode = back; render(); toast(e.message); }
+  } else planTo(p);
+}
+
+/* ---------- UI ---------- */
+function render(){
+  const sh = $('sheet'), nav = S.mode === 'nav' || (S.mode === 'pois' && S.prevMode === 'nav');
+  $('searchForm').hidden = nav; $('turn').hidden = !nav; $('speedBox').hidden = !nav;
+  let h = '';
+  if (S.mode === 'results'){
+    h = `<h2>${L('Results')}<button data-act="close">${L('Close')}</button></h2>` + (S.results.length ? S.results.map((r, i) =>
+      `<button class="row" data-res="${i}"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${esc(r.addr)}</div></div><div class="r">${r.dist != null ? fmtDist(r.dist) : ''}</div></button>`).join('') : `<div class="s">${L('No matches.')}</div>`);
+  } else if (S.mode === 'pois'){
+    h = `<h2>${L(S.poiKind === 'fuel' ? 'Fuel' : 'Parking')} ${L(S.prevMode === 'browse' ? 'nearby' : 'on your route')}<button data-act="closePois">${L('Close')}</button></h2>` + S.pois.map((r, i) =>
+      `<button class="row" data-poi="${i}"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${esc(r.addr)}</div></div><div class="r">${r.detour != null ? '<b>+' + fmtDur(r.detour) + '</b>' + L('detour') : (r.dist != null ? fmtDist(r.dist) : '')}</div></button>`).join('');
+  } else if (S.mode === 'preview'){
+    h = `<h2>${L('To')} ${esc(S.dest.name)}<button data-act="cancel">${L('Cancel')}</button></h2><div class="routes">` + S.routes.map((r, i) => {
+      const d = r.sum.trafficDelayInSeconds || 0;
+      return `<button class="rc ${i === S.sel ? 'sel' : ''}" data-route="${i}"><b>${fmtDur(r.sum.travelTimeInSeconds)}</b><span>${fmtDist(r.len)} · ${clock(new Date(Date.now() + r.sum.travelTimeInSeconds * 1000))}</span><span class="${d > 60 ? 'delay' : 'free'}">${d > 60 ? '+' + fmtDur(d) + ' ' + L('traffic') : L('No delays')}</span></button>`;
+    }).join('') + `</div>${S.stops.length ? `<div class="destline">${cap(L('via'))} ${esc(S.stops[0].name)}</div>` : ''}<div class="actions"><button class="btn ghost" data-act="sim">${L('Simulate')}</button><button class="btn go" data-act="go">${L('Start')}</button></div>`;
+  } else if (S.mode === 'nav'){
+    h = `<div class="stats"><div><b id="nEta">–</b><span>${L('arrival')}</span></div><div><b id="nTime">–</b><span>${L('to go')}</span></div><div><b id="nDist">–</b><span>${L('distance')}</span></div><button class="btn stop" data-act="end">${L('End')}</button></div><div class="destline">${esc(S.dest.name)}${S.stops.length ? ' ' + L('via') + ' ' + esc(S.stops[0].name) : ''}${S.sim ? ' · ' + L('simulation') : ''}</div>`;
+  }
+  sh.innerHTML = h; sh.hidden = !h;
+  if (S.mode === 'nav') updateNavUi();
+}
+$('sheet').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.res != null) planTo(S.results[+b.dataset.res]);
+  else if (b.dataset.poi != null) pickPoi(+b.dataset.poi);
+  else if (b.dataset.route != null) selectRoute(b.dataset.route);
+  else switch (b.dataset.act){
+    case 'close': S.mode = 'browse'; render(); break;
+    case 'closePois': { const m = S.prevMode || 'browse'; clearPois(); S.mode = m; render(); break; }
+    case 'cancel': stopNav(); break;
+    case 'go': startNav(false); break;
+    case 'sim': startNav(true); break;
+    case 'end': stopNav(); break;
+  }
+});
+$('q').addEventListener('input', () => {
+  const q = $('q').value.trim(); $('clearQ').hidden = !q; clearTimeout(searchTimer);
+  if (q.length >= 3) searchTimer = setTimeout(() => runSearch(q), 300);
+});
+$('searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('q').value.trim(); if (q){ clearTimeout(searchTimer); runSearch(q); $('q').blur(); } });
+$('clearQ').onclick = () => { $('q').value = ''; $('clearQ').hidden = true; if (S.mode === 'results'){ S.mode = 'browse'; render(); } $('q').focus(); };
+$('bLocate').onclick = () => {
+  S.following = true; $('bLocate').classList.remove('on');
+  if (S.pos && S.mode !== 'nav') map.easeTo({ center: [S.pos.lon, S.pos.lat], zoom: 15, pitch: 0, bearing: 0, duration: 600 });
+};
+$('bTraffic').onclick = () => setTraffic(!S.traffic);
+$('bFuel').onclick = () => findPois('fuel');
+$('bPark').onclick = () => findPois('park');
+function paintMute(){ $('bMute').classList.toggle('off', S.muted); $('muteWave').style.display = S.muted ? 'none' : ''; }
+$('bMute').onclick = () => { S.muted = !S.muted; store.set('muted', S.muted ? '1' : '0'); paintMute(); if (S.muted) try { speechSynthesis.cancel(); } catch {} else say(' '); };
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && S.mode === 'nav' && navigator.wakeLock) try { wake = await navigator.wakeLock.request('screen'); } catch {}
+});
+
+/* ---------- boot ---------- */
+async function boot(){
+  $('setup').hidden = true; paintMute();
+  if (!window.maplibregl){ toast('The map library did not load. Check your connection and reload.', 10000); return; }
+  await initMap(); render(); startGps();
+}
+$('keyForm').addEventListener('submit', async e => {
+  e.preventDefault(); const k = $('keyIn').value.trim(); if (!k) return;
+  $('keyErr').textContent = L('Checking…'); KEY = k;
+  try { await tt('/search/2/search/Amsterdam.json', { limit: 1 }); store.set('tt_key', k); $('keyErr').textContent = ''; boot(); }
+  catch (err){ KEY = ''; $('keyErr').textContent = L(err.status === 403 ? 'This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.' : 'Could not reach TomTom. Check your connection.'); }
+});
+$('q').placeholder = L('Where to?'); $('keyIn').placeholder = L('TomTom API key');
+$('setupText').textContent = L('Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.');
+$('keyGo').textContent = L('Start');
+if (KEY) boot(); else $('setup').hidden = false;
+</script>
+</body>
+</html>
