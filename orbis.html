@@ -132,6 +132,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 }
 .stats span.late{color:var(--warn);font-weight:600}
 .pin.drop{background:var(--route)}
+.poi.live{background:#fff;border-color:#0f1720;font-size:15px}
+.poi.live.haz{border-color:#e8590c}
 #map{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 
 #lanes{display:flex;gap:4px;align-self:flex-start;background:#0f1720;border-radius:12px;padding:6px 8px;box-shadow:var(--shadow)}
@@ -147,6 +149,22 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
   #road{max-width:30vw}
   #tools{gap:6px}
   .tool{width:40px;height:40px}
+}
+
+#rbar{position:fixed;z-index:4;right:calc(var(--sr) + 8px);top:calc(var(--st) + 112px);bottom:calc(var(--sb) + 128px);width:50px;display:flex;flex-direction:column;align-items:center;background:rgba(15,23,32,.86);border-radius:25px;box-shadow:var(--shadow);color:#fff;padding:6px 0}
+#rcap{font-size:10px;font-weight:700;color:#c9d3dd;height:14px;line-height:14px}
+#rmid{position:relative;flex:1;width:100%;margin:16px 0 20px}
+#rmid .trk{position:absolute;left:50%;margin-left:-4px;width:8px;top:-10px;bottom:-10px;border-radius:4px;background:#2f8cff}
+#rlane{position:absolute;inset:0}
+#rlane i{position:absolute;left:50%;margin-left:-4px;width:8px;min-height:4px;border-radius:4px}
+#rlane b{position:absolute;left:50%;width:28px;height:28px;margin-left:-14px;transform:translateY(50%);border-radius:50%;background:#fff;display:grid;place-items:center;font-size:15px;font-weight:400;line-height:1}
+#rlane b.jam{width:36px;margin-left:-18px;height:20px;border-radius:10px;color:#fff;font-size:11px;font-weight:800;border:1.5px solid #fff}
+#rmid .you{position:absolute;left:50%;bottom:-18px;margin-left:-11px;width:22px;height:22px;border-radius:50%;background:#fff;color:#1a73e8;display:grid;place-items:center;font-size:11px}
+#rnext{font-size:11px;font-weight:700;line-height:1.2;text-align:center;min-height:28px}
+body.nav #tools{right:calc(var(--sr) + 66px)}
+body.nav .maplibregl-ctrl-bottom-right{right:58px}
+@media (orientation:landscape) and (max-height:520px){
+  #rbar{top:calc(var(--st) + 8px);bottom:calc(var(--sb) + 8px)}
 }
 </style>
 </head>
@@ -176,6 +194,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
   <button class="tool" id="bStyle" aria-label="Map style"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 2 8l10 5 10-5-10-5z"/><path d="M2 13l10 5 10-5"/></svg></button>
   <button class="tool" id="bMute" aria-label="Voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path id="muteWave" d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg></button>
 </div>
+
+<div id="rbar" hidden><div id="rcap"></div><div id="rmid"><div class="trk"></div><div id="rlane"></div><div class="you">▲</div></div><div id="rnext"></div></div>
 
 <button id="stack" hidden></button>
 
@@ -215,11 +235,11 @@ const WORDS = { en: ['In', 'kilometres', 'metres'], nl: ['Over', 'kilometer', 'm
   fr: ['Dans', 'kilomètres', 'mètres'], es: ['En', 'kilómetros', 'metros'], it: ['Tra', 'chilometri', 'metri'] }[LANG.slice(0, 2)];
 
 const TR = {
- nl: {'Where to?':'Waar naartoe?','Results':'Resultaten','Close':'Sluiten','No matches.':'Geen resultaten.','Fuel':'Tanken','Parking':'Parkeren','nearby':'in de buurt','on your route':'op je route','detour':'omweg','delay':'vertraging','Navigate here':'Navigeer hierheen','Pinned location':'Geprikte locatie','Delay':'Vertraging','Length':'Lengte','Until':'Tot','Traffic incident':'Verkeersmelding','Map':'Kaart','Relief':'Reliëf','Satellite':'Satelliet','This map style is not available with your key.':'Deze kaartstijl is niet beschikbaar met jouw sleutel.','To':'Naar','Cancel':'Annuleren','traffic':'verkeer','No delays':'Geen vertraging','via':'via','Simulate':'Simuleren','Start':'Start','arrival':'aankomst','to go':'te gaan','distance':'afstand','End':'Stop','simulation':'simulatie','Calculating route…':'Route berekenen…','Searching…':'Zoeken…','Nothing found nearby.':'Niets gevonden in de buurt.','No GPS position yet. Try again in a moment.':'Nog geen gps-positie. Probeer het zo opnieuw.','Off route. Recalculating…':'Van de route af. Opnieuw berekenen…','Faster route found. Saves':'Snellere route gevonden. Scheelt','Adding stop…':'Tussenstop toevoegen…','Location is blocked. Allow it in Settings, Safari, Location.':'Locatie is geblokkeerd. Sta het toe in Instellingen, Safari, Locatie.','Waiting for GPS…':'Wachten op gps…','You have arrived.':'Je bent gearriveerd.','This browser has no location access.':'Deze browser heeft geen toegang tot je locatie.','No route found.':'Geen route gevonden.','The map library did not load. Check your connection and reload.':'De kaart kon niet laden. Controleer je verbinding en laad opnieuw.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Autonavigatie met kaarten, zoeken, routes en live verkeer van TomTom. Plak je TomTom API-sleutel één keer. Die blijft op deze telefoon.','TomTom API key':'TomTom API-sleutel','Checking…':'Controleren…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Deze sleutel is geweigerd. Controleer of Search, Routing, Map Display en Traffic aanstaan.','Could not reach TomTom. Check your connection.':'TomTom is niet bereikbaar. Controleer je verbinding.'},
- de: {'Where to?':'Wohin?','Results':'Ergebnisse','Close':'Schließen','No matches.':'Keine Treffer.','Fuel':'Tanken','Parking':'Parken','nearby':'in der Nähe','on your route':'auf deiner Route','detour':'Umweg','delay':'Verzögerung','Navigate here':'Hierhin navigieren','Pinned location':'Markierter Ort','Delay':'Verzögerung','Length':'Länge','Until':'Bis','Traffic incident':'Verkehrsmeldung','Map':'Karte','Relief':'Relief','Satellite':'Satellit','This map style is not available with your key.':'Dieser Kartenstil ist mit deinem Schlüssel nicht verfügbar.','To':'Nach','Cancel':'Abbrechen','traffic':'Verkehr','No delays':'Keine Verzögerung','via':'über','Simulate':'Simulieren','Start':'Start','arrival':'Ankunft','to go':'verbleibend','distance':'Entfernung','End':'Beenden','simulation':'Simulation','Calculating route…':'Route wird berechnet…','Searching…':'Suche…','Nothing found nearby.':'Nichts in der Nähe gefunden.','No GPS position yet. Try again in a moment.':'Noch keine GPS-Position. Gleich noch einmal versuchen.','Off route. Recalculating…':'Route verlassen. Neuberechnung…','Faster route found. Saves':'Schnellere Route gefunden. Spart','Adding stop…':'Zwischenstopp wird hinzugefügt…','Location is blocked. Allow it in Settings, Safari, Location.':'Standort ist blockiert. In Einstellungen, Safari, Standort erlauben.','Waiting for GPS…':'Warte auf GPS…','You have arrived.':'Du hast dein Ziel erreicht.','This browser has no location access.':'Dieser Browser hat keinen Standortzugriff.','No route found.':'Keine Route gefunden.','The map library did not load. Check your connection and reload.':'Die Karte konnte nicht geladen werden. Verbindung prüfen und neu laden.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Autonavigation mit Karten, Suche, Routen und Live-Verkehr von TomTom. Füge deinen TomTom API-Schlüssel einmal ein. Er bleibt auf diesem Telefon.','TomTom API key':'TomTom API-Schlüssel','Checking…':'Prüfe…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Dieser Schlüssel wurde abgelehnt. Prüfe, ob Search, Routing, Map Display und Traffic aktiviert sind.','Could not reach TomTom. Check your connection.':'TomTom ist nicht erreichbar. Verbindung prüfen.'},
- fr: {'Where to?':'Où allez-vous ?','Results':'Résultats','Close':'Fermer','No matches.':'Aucun résultat.','Fuel':'Carburant','Parking':'Parking','nearby':'à proximité','on your route':'sur votre trajet','detour':'détour','delay':'de retard','Navigate here':'Aller ici','Pinned location':'Lieu épinglé','Delay':'Retard','Length':'Longueur','Until':'Jusqu’à','Traffic incident':'Incident de circulation','Map':'Carte','Relief':'Relief','Satellite':'Satellite','This map style is not available with your key.':'Ce style de carte n’est pas disponible avec votre clé.','To':'Vers','Cancel':'Annuler','traffic':'trafic','No delays':'Aucun retard','via':'via','Simulate':'Simuler','Start':'Démarrer','arrival':'arrivée','to go':'restant','distance':'distance','End':'Arrêter','simulation':'simulation','Calculating route…':'Calcul de l’itinéraire…','Searching…':'Recherche…','Nothing found nearby.':'Rien trouvé à proximité.','No GPS position yet. Try again in a moment.':'Pas encore de position GPS. Réessayez dans un instant.','Off route. Recalculating…':'Hors itinéraire. Recalcul…','Faster route found. Saves':'Itinéraire plus rapide trouvé. Gain de','Adding stop…':'Ajout de l’étape…','Location is blocked. Allow it in Settings, Safari, Location.':'La localisation est bloquée. Autorisez-la dans Réglages, Safari, Position.','Waiting for GPS…':'En attente du GPS…','You have arrived.':'Vous êtes arrivé.','This browser has no location access.':'Ce navigateur n’a pas accès à la localisation.','No route found.':'Aucun itinéraire trouvé.','The map library did not load. Check your connection and reload.':'La carte n’a pas pu se charger. Vérifiez votre connexion et rechargez.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navigation auto avec les cartes, la recherche, les itinéraires et le trafic en direct de TomTom. Collez votre clé API TomTom une fois. Elle reste sur ce téléphone.','TomTom API key':'Clé API TomTom','Checking…':'Vérification…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Cette clé a été refusée. Vérifiez que Search, Routing, Map Display et Traffic sont activés.','Could not reach TomTom. Check your connection.':'TomTom est injoignable. Vérifiez votre connexion.'},
- es: {'Where to?':'¿Adónde vas?','Results':'Resultados','Close':'Cerrar','No matches.':'Sin resultados.','Fuel':'Combustible','Parking':'Aparcamiento','nearby':'cerca','on your route':'en tu ruta','detour':'desvío','delay':'de retraso','Navigate here':'Navegar aquí','Pinned location':'Ubicación marcada','Delay':'Retraso','Length':'Longitud','Until':'Hasta','Traffic incident':'Incidencia de tráfico','Map':'Mapa','Relief':'Relieve','Satellite':'Satélite','This map style is not available with your key.':'Este estilo de mapa no está disponible con tu clave.','To':'A','Cancel':'Cancelar','traffic':'tráfico','No delays':'Sin retrasos','via':'vía','Simulate':'Simular','Start':'Iniciar','arrival':'llegada','to go':'restante','distance':'distancia','End':'Terminar','simulation':'simulación','Calculating route…':'Calculando ruta…','Searching…':'Buscando…','Nothing found nearby.':'No se encontró nada cerca.','No GPS position yet. Try again in a moment.':'Aún no hay posición GPS. Inténtalo en un momento.','Off route. Recalculating…':'Fuera de ruta. Recalculando…','Faster route found. Saves':'Ruta más rápida encontrada. Ahorra','Adding stop…':'Añadiendo parada…','Location is blocked. Allow it in Settings, Safari, Location.':'La ubicación está bloqueada. Permítela en Ajustes, Safari, Ubicación.','Waiting for GPS…':'Esperando GPS…','You have arrived.':'Has llegado.','This browser has no location access.':'Este navegador no tiene acceso a la ubicación.','No route found.':'No se encontró ninguna ruta.','The map library did not load. Check your connection and reload.':'El mapa no se pudo cargar. Comprueba la conexión y recarga.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navegación para coche con mapas, búsqueda, rutas y tráfico en directo de TomTom. Pega tu clave API de TomTom una vez. Se queda en este teléfono.','TomTom API key':'Clave API de TomTom','Checking…':'Comprobando…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Esta clave fue rechazada. Comprueba que Search, Routing, Map Display y Traffic estén activados.','Could not reach TomTom. Check your connection.':'No se pudo conectar con TomTom. Comprueba la conexión.'},
- it: {'Where to?':'Dove vai?','Results':'Risultati','Close':'Chiudi','No matches.':'Nessun risultato.','Fuel':'Carburante','Parking':'Parcheggio','nearby':'nelle vicinanze','on your route':'lungo il percorso','detour':'deviazione','delay':'di ritardo','Navigate here':'Naviga qui','Pinned location':'Posizione selezionata','Delay':'Ritardo','Length':'Lunghezza','Until':'Fino a','Traffic incident':'Segnalazione traffico','Map':'Mappa','Relief':'Rilievo','Satellite':'Satellite','This map style is not available with your key.':'Questo stile di mappa non è disponibile con la tua chiave.','To':'A','Cancel':'Annulla','traffic':'traffico','No delays':'Nessun ritardo','via':'via','Simulate':'Simula','Start':'Avvia','arrival':'arrivo','to go':'rimanente','distance':'distanza','End':'Termina','simulation':'simulazione','Calculating route…':'Calcolo del percorso…','Searching…':'Ricerca…','Nothing found nearby.':'Niente trovato nelle vicinanze.','No GPS position yet. Try again in a moment.':'Ancora nessuna posizione GPS. Riprova tra poco.','Off route. Recalculating…':'Fuori percorso. Ricalcolo…','Faster route found. Saves':'Trovato un percorso più veloce. Risparmi','Adding stop…':'Aggiunta della tappa…','Location is blocked. Allow it in Settings, Safari, Location.':'La posizione è bloccata. Consentila in Impostazioni, Safari, Posizione.','Waiting for GPS…':'In attesa del GPS…','You have arrived.':'Sei arrivato.','This browser has no location access.':'Questo browser non ha accesso alla posizione.','No route found.':'Nessun percorso trovato.','The map library did not load. Check your connection and reload.':'La mappa non si è caricata. Controlla la connessione e ricarica.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navigazione per auto con mappe, ricerca, percorsi e traffico in tempo reale di TomTom. Incolla la tua chiave API TomTom una volta. Resta su questo telefono.','TomTom API key':'Chiave API TomTom','Checking…':'Verifica…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Questa chiave è stata rifiutata. Verifica che Search, Routing, Map Display e Traffic siano attivi.','Could not reach TomTom. Check your connection.':'TomTom non è raggiungibile. Controlla la connessione.'}
+ nl: {'Where to?':'Waar naartoe?','Results':'Resultaten','Close':'Sluiten','No matches.':'Geen resultaten.','Fuel':'Tanken','Parking':'Parkeren','nearby':'in de buurt','on your route':'op je route','detour':'omweg','delay':'vertraging','Navigate here':'Navigeer hierheen','Pinned location':'Geprikte locatie','Delay':'Vertraging','Recent':'Recent','Speed camera':'Flitser','Mobile speed camera':'Mobiele flitser','Red light camera':'Roodlichtcamera','Red light and speed camera':'Roodlicht- en snelheidscamera','Average speed check':'Trajectcontrole','Speed check zone':'Controlezone','Camera':'Camera','Accident':'Ongeval','Bad road surface':'Slecht wegdek','Broken down vehicle':'Pechgeval','Emergency vehicle approaching':'Hulpdienst nadert','Hazard':'Gevaar','End of traffic jam':'Staart van de file','Object on the road':'Voorwerp op de weg','Poor visibility':'Slecht zicht','Slippery road':'Gladheid','Strong wind':'Harde wind','Wrong way driver':'Spookrijder','Length':'Lengte','Until':'Tot','Traffic incident':'Verkeersmelding','Map':'Kaart','Relief':'Reliëf','Satellite':'Satelliet','This map style is not available with your key.':'Deze kaartstijl is niet beschikbaar met jouw sleutel.','To':'Naar','Cancel':'Annuleren','traffic':'verkeer','No delays':'Geen vertraging','via':'via','Simulate':'Simuleren','Start':'Start','arrival':'aankomst','to go':'te gaan','distance':'afstand','End':'Stop','simulation':'simulatie','Calculating route…':'Route berekenen…','Searching…':'Zoeken…','Nothing found nearby.':'Niets gevonden in de buurt.','No GPS position yet. Try again in a moment.':'Nog geen gps-positie. Probeer het zo opnieuw.','Off route. Recalculating…':'Van de route af. Opnieuw berekenen…','Faster route found. Saves':'Snellere route gevonden. Scheelt','Adding stop…':'Tussenstop toevoegen…','Location is blocked. Allow it in Settings, Safari, Location.':'Locatie is geblokkeerd. Sta het toe in Instellingen, Safari, Locatie.','Waiting for GPS…':'Wachten op gps…','You have arrived.':'Je bent gearriveerd.','This browser has no location access.':'Deze browser heeft geen toegang tot je locatie.','No route found.':'Geen route gevonden.','The map library did not load. Check your connection and reload.':'De kaart kon niet laden. Controleer je verbinding en laad opnieuw.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Autonavigatie met kaarten, zoeken, routes en live verkeer van TomTom. Plak je TomTom API-sleutel één keer. Die blijft op deze telefoon.','TomTom API key':'TomTom API-sleutel','Checking…':'Controleren…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Deze sleutel is geweigerd. Controleer of Search, Routing, Map Display en Traffic aanstaan.','Could not reach TomTom. Check your connection.':'TomTom is niet bereikbaar. Controleer je verbinding.'},
+ de: {'Where to?':'Wohin?','Results':'Ergebnisse','Close':'Schließen','No matches.':'Keine Treffer.','Fuel':'Tanken','Parking':'Parken','nearby':'in der Nähe','on your route':'auf deiner Route','detour':'Umweg','delay':'Verzögerung','Navigate here':'Hierhin navigieren','Pinned location':'Markierter Ort','Delay':'Verzögerung','Recent':'Zuletzt','Speed camera':'Blitzer','Mobile speed camera':'Mobiler Blitzer','Red light camera':'Rotlichtkamera','Red light and speed camera':'Rotlicht- und Tempokamera','Average speed check':'Abschnittskontrolle','Speed check zone':'Kontrollzone','Camera':'Kamera','Accident':'Unfall','Bad road surface':'Schlechte Fahrbahn','Broken down vehicle':'Pannenfahrzeug','Emergency vehicle approaching':'Einsatzfahrzeug nähert sich','Hazard':'Gefahr','End of traffic jam':'Stauende','Object on the road':'Gegenstand auf der Fahrbahn','Poor visibility':'Schlechte Sicht','Slippery road':'Glätte','Strong wind':'Starker Wind','Wrong way driver':'Falschfahrer','Length':'Länge','Until':'Bis','Traffic incident':'Verkehrsmeldung','Map':'Karte','Relief':'Relief','Satellite':'Satellit','This map style is not available with your key.':'Dieser Kartenstil ist mit deinem Schlüssel nicht verfügbar.','To':'Nach','Cancel':'Abbrechen','traffic':'Verkehr','No delays':'Keine Verzögerung','via':'über','Simulate':'Simulieren','Start':'Start','arrival':'Ankunft','to go':'verbleibend','distance':'Entfernung','End':'Beenden','simulation':'Simulation','Calculating route…':'Route wird berechnet…','Searching…':'Suche…','Nothing found nearby.':'Nichts in der Nähe gefunden.','No GPS position yet. Try again in a moment.':'Noch keine GPS-Position. Gleich noch einmal versuchen.','Off route. Recalculating…':'Route verlassen. Neuberechnung…','Faster route found. Saves':'Schnellere Route gefunden. Spart','Adding stop…':'Zwischenstopp wird hinzugefügt…','Location is blocked. Allow it in Settings, Safari, Location.':'Standort ist blockiert. In Einstellungen, Safari, Standort erlauben.','Waiting for GPS…':'Warte auf GPS…','You have arrived.':'Du hast dein Ziel erreicht.','This browser has no location access.':'Dieser Browser hat keinen Standortzugriff.','No route found.':'Keine Route gefunden.','The map library did not load. Check your connection and reload.':'Die Karte konnte nicht geladen werden. Verbindung prüfen und neu laden.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Autonavigation mit Karten, Suche, Routen und Live-Verkehr von TomTom. Füge deinen TomTom API-Schlüssel einmal ein. Er bleibt auf diesem Telefon.','TomTom API key':'TomTom API-Schlüssel','Checking…':'Prüfe…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Dieser Schlüssel wurde abgelehnt. Prüfe, ob Search, Routing, Map Display und Traffic aktiviert sind.','Could not reach TomTom. Check your connection.':'TomTom ist nicht erreichbar. Verbindung prüfen.'},
+ fr: {'Where to?':'Où allez-vous ?','Results':'Résultats','Close':'Fermer','No matches.':'Aucun résultat.','Fuel':'Carburant','Parking':'Parking','nearby':'à proximité','on your route':'sur votre trajet','detour':'détour','delay':'de retard','Navigate here':'Aller ici','Pinned location':'Lieu épinglé','Delay':'Retard','Recent':'Récents','Speed camera':'Radar','Mobile speed camera':'Radar mobile','Red light camera':'Radar de feu rouge','Red light and speed camera':'Radar feu rouge et vitesse','Average speed check':'Radar tronçon','Speed check zone':'Zone de contrôle','Camera':'Radar','Accident':'Accident','Bad road surface':'Chaussée dégradée','Broken down vehicle':'Véhicule en panne','Emergency vehicle approaching':'Véhicule d’urgence en approche','Hazard':'Danger','End of traffic jam':'Queue de bouchon','Object on the road':'Objet sur la chaussée','Poor visibility':'Visibilité réduite','Slippery road':'Chaussée glissante','Strong wind':'Vent fort','Wrong way driver':'Véhicule à contresens','Length':'Longueur','Until':'Jusqu’à','Traffic incident':'Incident de circulation','Map':'Carte','Relief':'Relief','Satellite':'Satellite','This map style is not available with your key.':'Ce style de carte n’est pas disponible avec votre clé.','To':'Vers','Cancel':'Annuler','traffic':'trafic','No delays':'Aucun retard','via':'via','Simulate':'Simuler','Start':'Démarrer','arrival':'arrivée','to go':'restant','distance':'distance','End':'Arrêter','simulation':'simulation','Calculating route…':'Calcul de l’itinéraire…','Searching…':'Recherche…','Nothing found nearby.':'Rien trouvé à proximité.','No GPS position yet. Try again in a moment.':'Pas encore de position GPS. Réessayez dans un instant.','Off route. Recalculating…':'Hors itinéraire. Recalcul…','Faster route found. Saves':'Itinéraire plus rapide trouvé. Gain de','Adding stop…':'Ajout de l’étape…','Location is blocked. Allow it in Settings, Safari, Location.':'La localisation est bloquée. Autorisez-la dans Réglages, Safari, Position.','Waiting for GPS…':'En attente du GPS…','You have arrived.':'Vous êtes arrivé.','This browser has no location access.':'Ce navigateur n’a pas accès à la localisation.','No route found.':'Aucun itinéraire trouvé.','The map library did not load. Check your connection and reload.':'La carte n’a pas pu se charger. Vérifiez votre connexion et rechargez.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navigation auto avec les cartes, la recherche, les itinéraires et le trafic en direct de TomTom. Collez votre clé API TomTom une fois. Elle reste sur ce téléphone.','TomTom API key':'Clé API TomTom','Checking…':'Vérification…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Cette clé a été refusée. Vérifiez que Search, Routing, Map Display et Traffic sont activés.','Could not reach TomTom. Check your connection.':'TomTom est injoignable. Vérifiez votre connexion.'},
+ es: {'Where to?':'¿Adónde vas?','Results':'Resultados','Close':'Cerrar','No matches.':'Sin resultados.','Fuel':'Combustible','Parking':'Aparcamiento','nearby':'cerca','on your route':'en tu ruta','detour':'desvío','delay':'de retraso','Navigate here':'Navegar aquí','Pinned location':'Ubicación marcada','Delay':'Retraso','Recent':'Recientes','Speed camera':'Radar','Mobile speed camera':'Radar móvil','Red light camera':'Cámara de semáforo','Red light and speed camera':'Cámara de semáforo y velocidad','Average speed check':'Radar de tramo','Speed check zone':'Zona de control','Camera':'Cámara','Accident':'Accidente','Bad road surface':'Firme en mal estado','Broken down vehicle':'Vehículo averiado','Emergency vehicle approaching':'Vehículo de emergencia acercándose','Hazard':'Peligro','End of traffic jam':'Cola de atasco','Object on the road':'Objeto en la calzada','Poor visibility':'Visibilidad reducida','Slippery road':'Calzada deslizante','Strong wind':'Viento fuerte','Wrong way driver':'Vehículo en sentido contrario','Length':'Longitud','Until':'Hasta','Traffic incident':'Incidencia de tráfico','Map':'Mapa','Relief':'Relieve','Satellite':'Satélite','This map style is not available with your key.':'Este estilo de mapa no está disponible con tu clave.','To':'A','Cancel':'Cancelar','traffic':'tráfico','No delays':'Sin retrasos','via':'vía','Simulate':'Simular','Start':'Iniciar','arrival':'llegada','to go':'restante','distance':'distancia','End':'Terminar','simulation':'simulación','Calculating route…':'Calculando ruta…','Searching…':'Buscando…','Nothing found nearby.':'No se encontró nada cerca.','No GPS position yet. Try again in a moment.':'Aún no hay posición GPS. Inténtalo en un momento.','Off route. Recalculating…':'Fuera de ruta. Recalculando…','Faster route found. Saves':'Ruta más rápida encontrada. Ahorra','Adding stop…':'Añadiendo parada…','Location is blocked. Allow it in Settings, Safari, Location.':'La ubicación está bloqueada. Permítela en Ajustes, Safari, Ubicación.','Waiting for GPS…':'Esperando GPS…','You have arrived.':'Has llegado.','This browser has no location access.':'Este navegador no tiene acceso a la ubicación.','No route found.':'No se encontró ninguna ruta.','The map library did not load. Check your connection and reload.':'El mapa no se pudo cargar. Comprueba la conexión y recarga.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navegación para coche con mapas, búsqueda, rutas y tráfico en directo de TomTom. Pega tu clave API de TomTom una vez. Se queda en este teléfono.','TomTom API key':'Clave API de TomTom','Checking…':'Comprobando…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Esta clave fue rechazada. Comprueba que Search, Routing, Map Display y Traffic estén activados.','Could not reach TomTom. Check your connection.':'No se pudo conectar con TomTom. Comprueba la conexión.'},
+ it: {'Where to?':'Dove vai?','Results':'Risultati','Close':'Chiudi','No matches.':'Nessun risultato.','Fuel':'Carburante','Parking':'Parcheggio','nearby':'nelle vicinanze','on your route':'lungo il percorso','detour':'deviazione','delay':'di ritardo','Navigate here':'Naviga qui','Pinned location':'Posizione selezionata','Delay':'Ritardo','Recent':'Recenti','Speed camera':'Autovelox','Mobile speed camera':'Autovelox mobile','Red light camera':'Telecamera semaforica','Red light and speed camera':'Telecamera semaforo e velocità','Average speed check':'Tutor','Speed check zone':'Zona di controllo','Camera':'Telecamera','Accident':'Incidente','Bad road surface':'Fondo stradale dissestato','Broken down vehicle':'Veicolo in panne','Emergency vehicle approaching':'Mezzo di soccorso in arrivo','Hazard':'Pericolo','End of traffic jam':'Coda','Object on the road':'Oggetto sulla carreggiata','Poor visibility':'Visibilità ridotta','Slippery road':'Strada scivolosa','Strong wind':'Vento forte','Wrong way driver':'Veicolo contromano','Length':'Lunghezza','Until':'Fino a','Traffic incident':'Segnalazione traffico','Map':'Mappa','Relief':'Rilievo','Satellite':'Satellite','This map style is not available with your key.':'Questo stile di mappa non è disponibile con la tua chiave.','To':'A','Cancel':'Annulla','traffic':'traffico','No delays':'Nessun ritardo','via':'via','Simulate':'Simula','Start':'Avvia','arrival':'arrivo','to go':'rimanente','distance':'distanza','End':'Termina','simulation':'simulazione','Calculating route…':'Calcolo del percorso…','Searching…':'Ricerca…','Nothing found nearby.':'Niente trovato nelle vicinanze.','No GPS position yet. Try again in a moment.':'Ancora nessuna posizione GPS. Riprova tra poco.','Off route. Recalculating…':'Fuori percorso. Ricalcolo…','Faster route found. Saves':'Trovato un percorso più veloce. Risparmi','Adding stop…':'Aggiunta della tappa…','Location is blocked. Allow it in Settings, Safari, Location.':'La posizione è bloccata. Consentila in Impostazioni, Safari, Posizione.','Waiting for GPS…':'In attesa del GPS…','You have arrived.':'Sei arrivato.','This browser has no location access.':'Questo browser non ha accesso alla posizione.','No route found.':'Nessun percorso trovato.','The map library did not load. Check your connection and reload.':'La mappa non si è caricata. Controlla la connessione e ricarica.','Car navigation on TomTom maps, search, routing and live traffic. Paste your TomTom API key once. It stays on this phone.':'Navigazione per auto con mappe, ricerca, percorsi e traffico in tempo reale di TomTom. Incolla la tua chiave API TomTom una volta. Resta su questo telefono.','TomTom API key':'Chiave API TomTom','Checking…':'Verifica…','This key was refused. Check that Search, Routing, Map Display and Traffic are enabled on it.':'Questa chiave è stata rifiutata. Verifica che Search, Routing, Map Display e Traffic siano attivi.','Could not reach TomTom. Check your connection.':'TomTom non è raggiungibile. Controlla la connessione.'}
 };
 const L = s => (TR[LANG.slice(0, 2)] || {})[s] ?? s;
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
@@ -265,7 +285,7 @@ async function tt(path, params = {}, opts){
 const ORB = { map: true, search: true, routing: true }, ORB_ERR = {};
 function paintStack(){
   const on = Object.keys(ORB).filter(k => ORB[k]), off = Object.keys(ORB).filter(k => !ORB[k]);
-  $('stack').textContent = (on.length ? 'Orbis: ' + on.join(', ') : '') + (on.length && off.length ? ' · ' : '') + (off.length ? 'classic: ' + off.join(', ') : '');
+  $('stack').textContent = (on.length ? 'Orbis: ' + on.join(', ') : '') + (on.length && off.length ? ' · ' : '') + (off.length ? 'classic: ' + off.join(', ') : '') + (typeof liveStatus === 'function' ? liveStatus() : '');
   $('stack').hidden = false;
 }
 function orbFail(part, e){ ORB_ERR[part] = String(e?.message || e || 'failed').slice(0, 200); if (ORB[part]){ ORB[part] = false; paintStack(); } }
@@ -289,7 +309,7 @@ function prepOrbis(r){
     maxSpeedLimitInKmh: ((x.speedRestrictions || []).find(q => q.type === 'maximum') || x.speedRestrictions?.[0])?.inKilometersPerHour })).filter(x => x.maxSpeedLimitInKmh);
   const tl = [[0, 0], ...(r.progressPoints || []).filter(p => p.pathIndex < pts.length).map(p => [cum[p.pathIndex], p.travelDurationInSeconds]), [len, total]].sort((a, b) => a[0] - b[0]);
   const wp = ins.filter(i => /waypoint/i.test(i.maneuver)).map(i => i.off);
-  const delays = (r.sections?.traffic || []).filter(x => x.delayDurationInSeconds > 0).map(x => ({ end: x.endPathIndex, d: x.delayDurationInSeconds }));
+  const delays = (r.sections?.traffic || []).filter(x => x.delayDurationInSeconds > 0).map(x => ({ start: x.startPathIndex, end: x.endPathIndex, d: x.delayDurationInSeconds, cat: x.iconCategory }));
   return { pts, cum, len, ins, limits, tl, wp, delays, orbis: true, sum: { travelTimeInSeconds: total, trafficDelayInSeconds: s.trafficDelayDurationInSeconds || 0 } };
 }
 async function calcOrbis(alts){
@@ -310,7 +330,7 @@ async function calcOrbis(alts){
 
 /* ---------- extras: incidents, snap to roads, autocomplete, lanes, map styles ---------- */
 const HAS_ORBIS = typeof ORB !== 'undefined';
-const FEAT = { snap: true, inc: true, incOrbis: true, auto: true, autoOrbis: true, lanes: true }, FEAT_ERR = {};
+const FEAT = { snap: true, inc: true, incOrbis: true, auto: true, autoOrbis: true, lanes: true, cam: true, haz: true, extOrbis: true }, FEAT_ERR = {};
 function featFail(k, e){ FEAT[k] = false; FEAT_ERR[k] = String(e?.message || e || 'failed').slice(0, 160); }
 const srch = (path, params, opts) => HAS_ORBIS ? places(path, params, opts) : tt('/search/2' + path, params, opts);
 const noAccess = e => [400, 403, 404].includes(e?.status);
@@ -492,7 +512,7 @@ async function pickSugg(i){
     if (s.cat) p.categorySet = s.cat; if (s.brand) p.brandSet = s.brand;
     const j = await srch(`/search/${encodeURIComponent(s.text || s.label)}.json`, p);
     if (seq !== searchSeq) return;
-    S.results = (j.results || []).map(placeOf); S.mode = 'results'; render();
+    S.results = (j.results || []).map(placeOf); S.recentShown = false; S.mode = 'results'; render();
   } catch (e){ toast(e.message); }
 }
 
@@ -523,6 +543,323 @@ async function attachLanes(rt){
     rt.lanes = out;
   } catch (e){ if (noAccess(e)) featFail('lanes', e); }
 }
+
+/* ---------- recent destinations ---------- */
+function getRecent(){ try { const a = JSON.parse(store.get('recent') || '[]'); return Array.isArray(a) ? a.filter(x => x && x.name && isFinite(x.lat) && isFinite(x.lon)) : []; } catch { return []; } }
+function saveRecent(p){
+  const same = x => Math.abs(x.lat - p.lat) < 0.0003 && Math.abs(x.lon - p.lon) < 0.0005;
+  store.set('recent', JSON.stringify([{ name: p.name, addr: p.addr || '', lat: p.lat, lon: p.lon }, ...getRecent().filter(x => !same(x))].slice(0, 3)));
+}
+function showRecent(){
+  if ($('q').value.trim() || !['browse', 'results'].includes(S.mode)) return;
+  const r = getRecent(); if (!r.length){ if (S.mode === 'results' && S.recentShown){ S.mode = 'browse'; render(); } return; }
+  ++searchSeq; S.sugg = [];
+  S.results = r.map(x => ({ ...x, dist: S.pos ? hav([S.pos.lon, S.pos.lat], [x.lon, x.lat]) : null }));
+  S.recentShown = true; S.mode = 'results'; render();
+}
+/* ask for fresh traffic on the map every two minutes */
+function refreshTraffic(){
+  if (!map || !S.traffic || document.hidden) return;
+  try {
+    const src = map.getStyle().sources || {};
+    for (const id of Object.keys(src)){
+      if (!/traffic|flow|incident/i.test(id + ' ' + JSON.stringify(src[id]).slice(0, 400))) continue;
+      const sc = map.style && map.style.sourceCaches && map.style.sourceCaches[id]; if (sc && sc.reload) sc.reload();
+    }
+  } catch {}
+}
+setInterval(refreshTraffic, 120000);
+
+/* ---------- route bar: what is coming up in the next 100 km ---------- */
+const BAR_IC = { fuel: '⛽', rest: '☕', stop: '📍', dest: '🏁' };
+const jamIcon = c => { c = String(c || '').toLowerCase().replace(/_/g, ''); return /work/.test(c) ? '🚧' : /clos/.test(c) ? '⛔' : /accident/.test(c) ? '💥' : /jam/.test(c) ? '🚗' : '⚠️'; };
+function barItems(rt){
+  const it = [];
+  for (const d of rt.delays || []) if (d.start != null && d.d >= 60) it.push({ kind: 'jam', a: rt.cum[d.start] ?? 0, b: rt.cum[d.end] ?? rt.len, d: d.d, cat: d.cat });
+  for (const p of rt.barPois || []) it.push({ kind: p.kind, a: p.a, name: p.name, poi: p });
+  for (const w of rt.wp || []) it.push({ kind: 'stop', a: w });
+  for (const l of rt.live || []) it.push({ kind: l.it.kind, a: l.a, name: liveLabel(l.it) + (l.it.speed ? ' · ' + l.it.speed + ' km/h' : ''), live: l.it });
+  it.push({ kind: 'dest', a: rt.len, name: S.dest ? S.dest.name : '' });
+  return it.sort((x, y) => x.a - y.a);
+}
+function buildBar(rt){
+  const lane = $('rlane'); lane.innerHTML = ''; rt.barEls = [];
+  barItems(rt).forEach((it, n) => {
+    let seg = null;
+    if (it.kind === 'jam'){ seg = document.createElement('i'); seg.style.background = it.d >= 600 ? '#c0170f' : it.d >= 180 ? '#e8590c' : '#f5a623'; lane.appendChild(seg); }
+    const el = document.createElement('b'); el.className = it.kind; el.dataset.n = n;
+    if (it.kind === 'jam') el.style.background = seg.style.background; else el.textContent = it.live ? liveIcon(it.live) : BAR_IC[it.kind];
+    lane.appendChild(el); rt.barEls.push({ it, el, seg });
+  });
+  updateBar(rt);
+}
+function updateBar(rt){
+  if (!rt.barEls){ buildBar(rt); return; }
+  const left = rt.len - S.along, W = Math.max(2000, Math.min(100000, left)), pct = a => (a - S.along) / W * 100, flip = Math.floor(Date.now() / 2500) % 2;
+  $('rcap').textContent = left > 100000 ? '100 km' : '';
+  const placed = [], prio = x => x.it.kind === 'dest' ? 0 : x.it.live ? 1 : x.it.kind === 'stop' ? 2 : 3;
+  for (const x of rt.barEls.filter(q => q.it.kind !== 'jam').sort((a, b) => prio(a) - prio(b) || a.it.a - b.it.a)){
+    const p = pct(x.it.a), ok = x.it.a > S.along && p <= 100.01 && (x.it.kind === 'dest' || (placed.every(q => Math.abs(q - p) >= 7) && (left > 100000 || p <= 93)));
+    x.vis = ok; x.el.hidden = !ok; if (!ok) continue;
+    placed.push(p); x.el.style.bottom = Math.min(100, p) + '%';
+  }
+  let next = null;
+  for (const x of rt.barEls){
+    const it = x.it;
+    if (it.kind === 'jam'){
+      const p0 = Math.max(0, pct(it.a)), p1 = Math.min(100, pct(it.b)); x.vis = it.b > S.along && pct(it.a) < 100;
+      x.seg.hidden = x.el.hidden = !x.vis; if (!x.vis) continue;
+      x.seg.style.bottom = p0 + '%'; x.seg.style.height = Math.max(1.5, p1 - p0) + '%';
+      x.el.style.bottom = p0 + '%'; x.el.textContent = flip ? jamIcon(it.cat) : '+' + Math.round(it.d / 60);
+    }
+    if (!next && x.vis && it.kind !== 'dest' && it.a > S.along) next = it;
+  }
+  const nx = next || { kind: 'dest', a: rt.len };
+  $('rnext').innerHTML = (nx.kind === 'jam' ? jamIcon(nx.cat) : nx.live ? liveIcon(nx.live) : BAR_IC[nx.kind]) + '<br>' + esc(fmtDist(Math.max(0, nx.a - S.along)));
+}
+const REST_CAT = '7395';
+async function loadBarPois(rt){
+  rt.barBusy = true; const from = S.along, to = Math.min(rt.len, from + 110000);
+  try {
+    let i1 = S.idx; while (i1 < rt.pts.length - 1 && rt.cum[i1] < to) i1++;
+    const seg = rt.pts.slice(S.idx, i1 + 1); if (seg.length < 2) return;
+    const step = Math.max(1, Math.ceil(seg.length / 250));
+    const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ route: { points: seg.filter((_, i) => i % step === 0 || i === seg.length - 1).map(p => ({ lat: p[1], lon: p[0] })) } }) };
+    const get = async (word, cat, limit, kind) => {
+      const path = `/searchAlongRoute/${encodeURIComponent(word)}.json`, prm = { maxDetourTime: 240, categorySet: cat, limit, spreadingMode: 'auto', language: LANG }; let j = null;
+      if (HAS_ORBIS && ORB.search){ try { j = await tt('/maps/orbis/places' + path, { apiVersion: 1, ...prm }, opts); } catch {} }
+      if (!j) j = await tt('/search/2' + path, prm, opts);
+      return (j.results || []).map(r => { const s = snap(rt, [r.position.lon, r.position.lat], 0, true); return s.d < 1200 && s.along > from ? { a: s.along, kind, name: (r.poi && r.poi.name) || '', fp: r.dataSources && r.dataSources.fuelPrice && r.dataSources.fuelPrice.id } : null; }).filter(Boolean);
+    };
+    const res = await Promise.allSettled([get('petrol station', '7311', 6, 'fuel'), get('rest area', REST_CAT, 5, 'rest')]);
+    if (S.route !== rt) return;
+    rt.barPois = res.flatMap(r => r.status === 'fulfilled' ? r.value : []).sort((x, y) => x.a - y.a);
+    rt.barEls = null; updateBar(rt);
+    for (const p of rt.barPois.filter(x => x.fp).slice(0, 6)) extData('fuelPrice', p.fp).then(j => { p.price = fuelText(j).slice(0, 2).join(' · '); }).catch(() => {});
+  } catch {} finally { rt.barBusy = false; rt.barTo = to; }
+}
+$('rlane').addEventListener('click', e => {
+  const b = e.target.closest('b'), rt = S.route; if (!b || !rt || !rt.barEls) return;
+  const it = (rt.barEls[+b.dataset.n] || {}).it; if (!it) return;
+  const what = it.kind === 'jam' ? `${jamIcon(it.cat)} +${fmtDur(it.d)} ${L('delay')}` : `${it.live ? liveIcon(it.live) : BAR_IC[it.kind]} ${it.name || ''}${it.poi && it.poi.price ? ' · ' + it.poi.price : ''}`;
+  toast(`${what} · ${fmtDist(Math.max(0, it.a - S.along))}`, 5000);
+});
+
+/* ---------- live feeds over MQTT: safety cameras and hazard warnings ---------- */
+const CAM_COUNTRIES = ['nld', 'bel'];   /* camera warnings are only switched on for these countries */
+const FEEDS = {
+  cam: { name: 'cam', auth: '/safetycameras/1/auth/token', ws: 'wss://mqtt.safetycams.tomtom-global.com:443/mqtt', hdr: 'x-getsafetycameras', topics: m => CAM_COUNTRIES.map(c => `sc/v2/${c}/+/+/${m}/#`) },
+  haz: { name: 'haz', auth: '/hazards/1/auth/token', ws: 'wss://prod.hazards.tomtom-global.com:443/mqtt', hdr: 'x-gethazards', topics: m => [`h5s/v1/+/+/${m}/#`] }
+};
+const CAM_NAME = { fixed_speed_cam: 'Speed camera', mobile_speed_cam: 'Mobile speed camera', red_light_cam: 'Red light camera', red_light_speed_cam: 'Red light and speed camera', average_speed_zone: 'Average speed check', speed_enforcement_zone: 'Speed check zone' };
+const HAZ_NAME = { accident: 'Accident', bad_road_conditions: 'Bad road surface', broken_down_vehicle: 'Broken down vehicle', emergency_vehicle_approaching: 'Emergency vehicle approaching', generic: 'Hazard',
+  jam_tail_warning: 'End of traffic jam', objects_on_road: 'Object on the road', reduced_visibility: 'Poor visibility', slippery_road: 'Slippery road', strong_wind: 'Strong wind', wrong_way_driver: 'Wrong way driver' };
+const HAZ_IC = { accident: '💥', bad_road_conditions: '🕳️', emergency_vehicle_approaching: '🚑', jam_tail_warning: '🚗', objects_on_road: '📦', reduced_visibility: '🌫️', slippery_road: '❄️', strong_wind: '💨', wrong_way_driver: '⛔' };
+const liveIcon = it => it.kind === 'cam' ? '📷' : (HAZ_IC[it.type] || '⚠️');
+const liveLabel = it => it.kind === 'cam' ? L(CAM_NAME[it.type] || 'Camera') : (it.text || L(HAZ_NAME[it.type] || 'Hazard'));
+function morton(lat, lon, lv){
+  const n = 2 ** lv, cl = v => Math.min(n - 1, Math.max(0, Math.floor(v))), y = cl((lat + 90) / 180 * n), x = cl((lon + 180) / 360 * n);
+  let c = 0; for (let i = 0; i < lv; i++) c += ((x >> i) & 1) * 4 ** i + ((y >> i) & 1) * 2 * 4 ** i;
+  return c;
+}
+function tileCentre(code, lv){
+  let x = 0, y = 0; for (let i = 0; i < lv; i++){ x += (Math.floor(code / 4 ** i) % 2) << i; y += (Math.floor(code / (2 * 4 ** i)) % 2) << i; }
+  const n = 2 ** lv; return { lat: (y + .5) / n * 180 - 90, lon: (x + .5) / n * 360 - 180 };
+}
+/* minimal MQTT 3.1.1 client over WebSocket: connect, subscribe, receive */
+function mqttConnect(o){
+  let ws; try { ws = new WebSocket(o.url, 'mqtt'); } catch (e){ setTimeout(() => o.onClose(String(e.message || e)), 0); return null; }
+  ws.binaryType = 'arraybuffer';
+  const enc = new TextEncoder(), dec = new TextDecoder(); let buf = new Uint8Array(0), pid = 1, ready = false, ping = 0, done = false;
+  const str = s => { const b = enc.encode(s); return [b.length >> 8, b.length & 255, ...b]; };
+  const send = (h, body) => { const len = []; let n = body.length; do { let d = n % 128; n = Math.floor(n / 128); if (n) d |= 128; len.push(d); } while (n); try { ws.send(new Uint8Array([h, ...len, ...body])); } catch {} };
+  const end = why => { if (done) return; done = true; ready = false; clearInterval(ping); try { ws.close(); } catch {} o.onClose(why); };
+  ws.onopen = () => send(0x10, [...str('MQTT'), 4, 0xC2, 0, 60, ...str(o.clientId), ...str(o.username), ...str(o.password)]);
+  ws.onerror = () => end('socket error'); ws.onclose = e => end('socket closed ' + (e.code || ''));
+  ws.onmessage = ev => {
+    const inc = new Uint8Array(ev.data), m = new Uint8Array(buf.length + inc.length); m.set(buf); m.set(inc, buf.length); buf = m;
+    for (;;){
+      if (buf.length < 2) return;
+      let len = 0, mul = 1, i = 1, b; do { if (i >= buf.length) return; b = buf[i++]; len += (b & 127) * mul; mul *= 128; } while (b & 128 && i < 5);
+      if (buf.length < i + len) return;
+      const h = buf[0], p = buf.subarray(i, i + len); buf = buf.slice(i + len);
+      const type = h >> 4;
+      if (type === 2){ if (p[1] === 0){ ready = true; ping = setInterval(() => send(0xC0, []), 45000); o.onOpen(); } else end('refused ' + p[1]); }
+      else if (type === 3){
+        const tl = (p[0] << 8) | p[1], topic = dec.decode(p.subarray(2, 2 + tl)), qos = (h >> 1) & 3; let at = 2 + tl;
+        if (qos){ send(qos === 1 ? 0x40 : 0x50, [p[at], p[at + 1]]); at += 2; }
+        try { o.onMessage(topic, p.subarray(at)); } catch {}
+      } else if (type === 6) send(0x70, [p[0], p[1]]);
+    }
+  };
+  const sub = (h, topics, q) => { for (let i = 0; i < topics.length; i += 8){ pid = pid % 65535 + 1; send(h, [pid >> 8, pid & 255, ...topics.slice(i, i + 8).flatMap(t => q ? [...str(t), 0] : str(t))]); } };
+  return { ready: () => ready, subscribe: t => sub(0x82, t, true), unsubscribe: t => sub(0xA2, t, false), close: () => end('closed') };
+}
+async function connectFeed(f){
+  try {
+    const r = await fetch(`${API}${f.auth}?key=${KEY}`);
+    if (!r.ok) throw Object.assign(new Error(f.name + ' sign-in ' + r.status), { status: r.status });
+    let tok = (await r.text()).trim(); if (tok[0] === '{'){ const j = JSON.parse(tok); tok = j.access_token || j.token || j.jwt || ''; }
+    tok = tok.replace(/^"|"$/g, ''); if (!tok) throw new Error(f.name + ' sign-in gave no token');
+    const head = k => { try { return r.headers.get(f.hdr + k); } catch { return null; } };
+    let claims = {}; try { claims = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch {}
+    const pick = re => { const k = Object.keys(claims).find(x => re.test(x)); return k ? String(claims[k]) : ''; };
+    const clientId = head('-mqtt-client-id') || pick(/client.?id/i) || 'koers-' + Math.random().toString(36).slice(2, 12);
+    f.conn = mqttConnect({ url: head('-url-ws') || f.ws, clientId, username: head('-mqtt-user') || pick(/^(mqtt.?)?user(name)?$/i) || clientId, password: tok,
+      onOpen: () => { f.fail = 0; f.subs = new Set(); syncFeed(f); }, onMessage: (t, p) => feedMsg(f, t, p),
+      onClose: why => { f.conn = null; f.fail = (f.fail || 0) + 1; if (f.fail >= 3 && !f.items.size) featFail(f.name, f.name + ' ' + why); else if (FEAT[f.name]) setTimeout(() => connectFeed(f), 20000); } });
+  } catch (e){
+    f.fail = (f.fail || 0) + 1;
+    if (noAccess(e) || e.status === 401 || f.fail >= 3) featFail(f.name, e); else setTimeout(() => connectFeed(f), 20000);
+  }
+}
+function wantedTiles(){
+  const set = new Set(); if (!S.pos) return set;
+  const dLat = 180 / 4096, dLon = 360 / 4096;
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) set.add(morton(S.pos.lat + i * dLat, S.pos.lon + j * dLon, 12));
+  const rt = base() === 'nav' ? S.route : null;
+  if (rt) for (let i = S.idx, to = S.along + 50000; i < rt.pts.length && rt.cum[i] <= to && set.size < 30; i++) set.add(morton(rt.pts[i][1], rt.pts[i][0], 12));
+  return set;
+}
+function syncFeed(f){
+  if (!f.conn || !f.conn.ready()) return;
+  const want = new Set(); for (const m of wantedTiles()) for (const t of f.topics(m)) want.add(t);
+  const add = [...want].filter(t => !f.subs.has(t)), del = [...f.subs].filter(t => !want.has(t));
+  if (add.length) f.conn.subscribe(add); if (del.length) f.conn.unsubscribe(del);
+  f.subs = want;
+}
+const kget = (o, re) => { if (!o || typeof o !== 'object') return undefined; const k = Object.keys(o).find(x => re.test(x)); return k ? o[k] : undefined; };
+function pickPair(lat, lon, box){
+  for (const s of [1, 1e5, 1e6, 1e7]){
+    const a = lat / s, b = lon / s; if (Math.abs(a) > 90 || Math.abs(b) > 180) continue;
+    if (!box) return s === 1 ? [b, a] : null;
+    if (Math.abs(a - box.lat) < 0.6 && Math.abs(b - box.lon) < 1.2) return [b, a];
+  }
+  return null;
+}
+function coordsIn(o, box, out = [], depth = 0){
+  if (!o || typeof o !== 'object' || depth > 8 || out.length > 300) return out;
+  if (Array.isArray(o)){
+    if (o.length >= 2 && o.length <= 3 && typeof o[0] === 'number' && typeof o[1] === 'number'){ const c = pickPair(o[1], o[0], box) || pickPair(o[0], o[1], box); if (c) out.push(c); }
+    else for (const v of o) coordsIn(v, box, out, depth + 1);
+    return out;
+  }
+  const la = kget(o, /^lat(itude)?$/i), lo = kget(o, /^(lon|lng|long|longitude)$/i);
+  if (typeof la === 'number' && typeof lo === 'number'){ const c = pickPair(la, lo, box); if (c) out.push(c); }
+  for (const k of Object.keys(o)) if (o[k] && typeof o[k] === 'object') coordsIn(o[k], box, out, depth + 1);
+  return out;
+}
+function numBy(o, re, depth = 0){
+  if (!o || typeof o !== 'object' || depth > 6) return null;
+  for (const k of Object.keys(o)){ if (!re.test(k)) continue; const v = o[k]; if (typeof v === 'number') return v; if (v && typeof v === 'object'){ const n = kget(v, /^(value|kmh|kph|inKmh)$/i); if (typeof n === 'number') return n; } }
+  for (const k of Object.keys(o)){ const r = numBy(o[k], re, depth + 1); if (r != null) return r; }
+  return null;
+}
+function parseCam(o, id, type, box){
+  if (kget(o, /^(deleted|canceled|cancelled|removed)$/i) === true) return false;
+  const cs = coordsIn(o, box); if (!cs.length) return null;
+  const sp = numBy(o, /speed.?limit|max.?speed|^speed$/i);
+  return { id: 'c' + id, kind: 'cam', type, lon: cs[0][0], lat: cs[0][1], speed: sp && sp >= 10 && sp <= 200 ? Math.round(sp) : null };
+}
+function parseHaz(o, id, type, box){
+  const mg = kget(o, /^msgMgmt$|messageManagement/i) || {}, info = kget(o, /^hazards?Info/i) || {}, loc = kget(o, /^location$/i) || o;
+  if (mg.canceled === true || mg.cancelled === true) return false;
+  const exp = Date.parse(mg.expirationTime || '') || 0; if (exp && exp < Date.now()) return false;
+  const t = String(info.type || type || 'generic').toLowerCase(); if (t === 'roadworks') return false;
+  const g = kget(loc, /^geoCoordinate$/i), c0 = g ? coordsIn(g, box) : [], cs = c0.length ? c0 : coordsIn(loc, box); if (!cs.length) return null;
+  const d = (((kget(info, /^detailed/i) || {}).description) || []).find(x => x && x.language === LANG.slice(0, 2));
+  return { id: 'h' + (mg.id || id), kind: 'haz', type: t, lon: cs[0][0], lat: cs[0][1], brg: typeof loc.bearing === 'number' ? loc.bearing : null, exp, text: d ? d.text : '' };
+}
+let liveDirty = false;
+function feedMsg(f, topic, bytes){
+  const seg = topic.split('/'), id = seg[seg.length - 1], type = (seg[seg.length - 2] || '').toLowerCase(), m13 = +seg[seg.length - 3];
+  f.n = (f.n || 0) + 1; liveDirty = true;
+  if (!bytes.length){ f.items.delete((f.name === 'cam' ? 'c' : 'h') + id); return; }
+  const text = new TextDecoder().decode(bytes); let o;
+  try { o = JSON.parse(text); } catch { f.bad = (f.bad || 0) + 1; if (!f.sample) f.sample = text.slice(0, 400); return; }
+  const box = isFinite(m13) && m13 > 0 ? tileCentre(m13, 13) : null, it = f.name === 'haz' ? parseHaz(o, id, type, box) : parseCam(o, id, type, box);
+  if (it === false) f.items.delete((f.name === 'cam' ? 'c' : 'h') + id);
+  else if (it) f.items.set(it.id, it);
+  else { f.bad = (f.bad || 0) + 1; if (!f.sample) f.sample = text.slice(0, 400); }
+}
+const liveItems = () => Object.values(FEEDS).flatMap(f => f.items ? [...f.items.values()] : []);
+const liveStatus = () => Object.values(FEEDS).map(f => f.items && (f.items.size || f.conn) ? ` · ${f.name === 'cam' ? '📷' : '⚠️'} ${f.items.size}` : '').join('');
+function liveDbg(){
+  const o = {}; for (const f of Object.values(FEEDS)){ if (f.items) o[f.name + ' feed'] = `${f.conn && f.conn.ready() ? 'connected' : 'not connected'}, ${f.n || 0} messages, ${f.items.size} usable, ${f.bad || 0} unreadable`; if (f.sample && !f.items.size) o[f.name + ' sample'] = f.sample; }
+  return o;
+}
+const liveMarks = new Map();
+function paintLive(){
+  if (!map || !S.pos) return;
+  const here = [S.pos.lon, S.pos.lat], near = liveItems().map(it => ({ it, d: hav(here, [it.lon, it.lat]) })).filter(x => x.d < 15000).sort((a, b) => a.d - b.d).slice(0, 60), keep = new Set(near.map(x => x.it.id));
+  for (const [id, m] of liveMarks) if (!keep.has(id)){ m.remove(); liveMarks.delete(id); }
+  for (const { it } of near){
+    if (liveMarks.has(it.id)) continue;
+    const e = document.createElement('div'); e.className = 'poi live ' + it.kind; e.textContent = liveIcon(it);
+    e.onclick = ev => { ev.stopPropagation(); toast(`${liveIcon(it)} ${liveLabel(it)}${it.speed ? ' · ' + it.speed + ' km/h' : ''}`, 5000); };
+    liveMarks.set(it.id, new maplibregl.Marker({ element: e }).setLngLat([it.lon, it.lat]).addTo(map));
+  }
+}
+function matchLive(rt){
+  if (!rt || !S.pos) return;
+  const out = [], here = [S.pos.lon, S.pos.lat];
+  for (const it of liveItems()){
+    if (hav(here, [it.lon, it.lat]) > 120000) continue;
+    const s = snap(rt, [it.lon, it.lat], 0, true); if (s.d > 30 || s.along <= S.along) continue;
+    if (it.kind === 'haz' && it.brg != null){ const rb = bearing(rt.pts[s.idx], rt.pts[s.idx + 1] || rt.pts[s.idx]); if (Math.abs(((it.brg - rb + 540) % 360) - 180) > 70) continue; }
+    out.push({ a: s.along, it });
+  }
+  rt.live = out.sort((x, y) => x.a - y.a); rt.barEls = null;
+}
+function announceLive(it, d){
+  const what = liveLabel(it) + (it.speed ? `, ${it.speed}` : '');
+  toast(`${liveIcon(it)} ${fmtDist(d)}: ${what}`, 8000); say(`${WORDS[0]} ${spokenDist(d)}: ${what}`);
+}
+const saidLately = id => { S.liveSaid = S.liveSaid || {}; if (Date.now() - (S.liveSaid[id] || 0) < 300000) return true; S.liveSaid[id] = Date.now(); return false; };
+function liveAlerts(rt){
+  const v = S.speed || 0;
+  for (const l of rt.live || []){
+    const d = l.a - S.along; if (d <= 0) continue; if (d > 2500) break;
+    if (d > (l.it.kind === 'cam' ? (v > 22 ? 1200 : 600) : 2000) || saidLately(l.it.id)) continue;
+    announceLive(l.it, d);
+  }
+}
+let freeAt = 0;
+function freeAlerts(){
+  if (Date.now() - freeAt < 2000 || (S.speed || 0) < 4 || !S.pos) return; freeAt = Date.now();
+  const here = [S.pos.lon, S.pos.lat];
+  for (const it of liveItems()){
+    const d = hav(here, [it.lon, it.lat]); if (d > (it.kind === 'cam' ? 600 : 1500) || d < 40) continue;
+    if (Math.abs(((bearing(here, [it.lon, it.lat]) - S.heading + 540) % 360) - 180) > 35) continue;
+    if (!saidLately(it.id)) announceLive(it, d);
+  }
+}
+let liveN = 0, liveAtPos = null;
+function liveTick(){
+  if (!S.pos || !KEY || !map) return;
+  for (const f of Object.values(FEEDS)) if (!f.items && FEAT[f.name]){ f.items = new Map(); f.subs = new Set(); connectFeed(f); }
+  liveN++;
+  if (liveN % 4 === 0) for (const f of Object.values(FEEDS)) syncFeed(f);
+  if (liveN % 12 === 0){ const here = [S.pos.lon, S.pos.lat]; for (const f of Object.values(FEEDS)) if (f.items) for (const [id, it] of f.items) if ((it.exp && it.exp < Date.now()) || hav(here, [it.lon, it.lat]) > 70000){ f.items.delete(id); liveDirty = true; } }
+  const moved = !liveAtPos || hav(liveAtPos, [S.pos.lon, S.pos.lat]) > 400;
+  if (liveDirty || moved || liveN % 6 === 0){ liveDirty = false; liveAtPos = [S.pos.lon, S.pos.lat]; paintLive(); if (base() === 'nav' && S.route){ matchLive(S.route); updateBar(S.route); } }
+  if (HAS_ORBIS) paintStack();
+}
+setInterval(liveTick, 5000);
+
+/* extra place data: fuel prices and parking availability, Orbis first */
+async function extData(name, id){
+  if (HAS_ORBIS && ORB.search && FEAT.extOrbis){
+    const u = `${API}/maps/orbis/places/${name}.json?${name}=${encodeURIComponent(id)}&apiVersion=1&key=${KEY}`;
+    try {
+      let r = await fetch(u); if (!r.ok && r.status !== 401 && r.status !== 403) r = await fetch(u, { headers: { 'TomTom-Api-Version': '1' } });
+      if (r.ok) return await r.json();
+      if (r.status === 401 || r.status === 403) featFail('extOrbis', name + ' ' + r.status);
+    } catch (e){ featFail('extOrbis', e); }
+  }
+  return tt('/search/2/' + name + '.json', { [name]: id });
+}
+const fuelText = j => ((j && j.fuels) || []).map(f => { const p = (f.price || [])[0] || {}; return p.value != null ? `${f.type} ${p.currencySymbol || ''}${(+p.value).toFixed(2)}` : null; }).filter(Boolean);
 
 /* ---------- voice ---------- */
 function say(text){
@@ -651,7 +988,7 @@ function onFix(f){
   if (f.heading != null && !isNaN(f.heading) && (S.speed || 0) > 1.5) S.heading = f.heading;
   let shown = [f.lon, f.lat];
   if (base() === 'nav' && S.route) shown = navTick() || shown;
-  else if (!S.sim){ feedSnap(f); if (snapOff) shown = [f.lon + snapOff[0], f.lat + snapOff[1]]; }
+  else if (!S.sim){ feedSnap(f); if (snapOff) shown = [f.lon + snapOff[0], f.lat + snapOff[1]]; freeAlerts(); }
   puck.setLngLat(shown).setRotation(S.heading).addTo(map);
   $('speedVal').textContent = S.speed == null ? '–' : Math.round(S.speed * 3.6);
   paintSpeed();
@@ -659,7 +996,7 @@ function onFix(f){
     const v = S.speed || 0, land = isLand(), zoom = (v < 8 ? 17 : v < 17 ? 16.3 : v < 28 ? 15.5 : 14.8) - (land ? 0.7 : 0);
     const col = land ? Math.round($('top').getBoundingClientRect().right) + 12 : 0;
     map.easeTo({ center: shown, bearing: S.heading, pitch: land ? 50 : 55, zoom, duration: 950, easing: t => t,
-      padding: land ? { top: 110, bottom: 0, left: col, right: 60 } : { top: 260, bottom: 0, left: 0, right: 0 } });
+      padding: land ? { top: 110, bottom: 0, left: col, right: 120 } : { top: 260, bottom: 0, left: 0, right: 50 } });
   } else if (first || (S.following && S.mode === 'browse')){
     map.easeTo({ center: shown, zoom: first ? 14 : map.getZoom(), duration: 600 });
   }
@@ -673,7 +1010,7 @@ async function runSearch(q){
     if (S.pos){ p.lat = S.pos.lat; p.lon = S.pos.lon; }
     const j = await places(`/search/${encodeURIComponent(q)}.json`, p);
     if (seq !== searchSeq) return;
-    S.results = (j.results || []).map(placeOf);
+    S.results = (j.results || []).map(placeOf); S.recentShown = false;
     S.mode = 'results'; render();
   } catch (e){ if (seq === searchSeq) toast(e.message); }
 }
@@ -692,7 +1029,7 @@ function prep(r){
   const tl = [[0, 0], ...ins.filter(i => i.travelTimeInSeconds > 0).map(i => [i.off, i.travelTimeInSeconds]), [len, r.summary.travelTimeInSeconds]].sort((a, b) => a[0] - b[0]);
   const wp = ins.filter(i => /WAYPOINT/.test(i.maneuver || '') || i.instructionType === 'LOCATION_WAYPOINT').map(i => i.off);
   const lanes = (r.sections || []).filter(x => x.sectionType === 'LANES' && x.lanes).map(x => ({ start: cum[x.startPointIndex] ?? 0, end: cum[x.endPointIndex] ?? len, lanes: x.lanes }));
-  const delays = (r.sections || []).filter(x => x.sectionType === 'TRAFFIC' && x.delayInSeconds > 0).map(x => ({ end: x.endPointIndex, d: x.delayInSeconds }));
+  const delays = (r.sections || []).filter(x => x.sectionType === 'TRAFFIC' && x.delayInSeconds > 0).map(x => ({ start: x.startPointIndex, end: x.endPointIndex, d: x.delayInSeconds, cat: x.simpleCategory }));
   return { pts, cum, len, ins, limits, tl, wp, delays, lanes, sum: r.summary };
 }
 async function calcRoute(alts){
@@ -713,7 +1050,7 @@ async function calcClassic(alts){
 }
 async function planTo(place){
   if (!S.pos){ toast('No GPS position yet. Try again in a moment.'); return; }
-  S.dest = place; S.stops = []; clearPois(); removePin(); setDestMarker();
+  S.dest = place; S.stops = []; clearPois(); removePin(); setDestMarker(); saveRecent(place);
   $('q').value = place.name; $('clearQ').hidden = false; $('q').blur();
   toast('Calculating route…', 8000);
   try {
@@ -752,7 +1089,7 @@ function pointAt(rt, along){
 /* ---------- navigation ---------- */
 async function startNav(simulate){
   snapOff = null; S.incAt = Date.now() - 50000; S.incSaid = {};
-  S.route = S.routes[S.sel]; attachLanes(S.route); S.idx = 0; S.along = 0; S.said = {}; S.offCount = 0; S.snapPt = null;
+  S.route = S.routes[S.sel]; attachLanes(S.route); liveDirty = true; S.idx = 0; S.along = 0; S.said = {}; S.offCount = 0; S.snapPt = null;
   S.mode = 'nav'; S.following = true; $('bLocate').classList.remove('on'); S.lastRefresh = Date.now();
   render(); drawRoutes();
   const dep = S.route.ins[0]; say(dep?.message || '');
@@ -781,6 +1118,7 @@ function navTick(){
   drawRoutes(); updateNavUi();
   if (Date.now() - S.lastRefresh > 240000) reroute(false);
   if (Date.now() - (S.incAt || 0) > 60000) checkAhead();
+  if (!rt.barBusy && (rt.barTo == null || (rt.barTo < rt.len && S.along > rt.barTo - 40000))) loadBarPois(rt);
   return s.pt;
 }
 function delayLeft(rt){
@@ -797,7 +1135,7 @@ function updateNavUi(){
     $('turnText').textContent = ins.street || (ins.roadNumbers || []).join(' / ') || ins.message || '';
     setArrow(ins); announce(ins, n, d, v);
   }
-  paintSpeed(); paintLanes(rt);
+  paintSpeed(); paintLanes(rt); updateBar(rt); liveAlerts(rt);
   const left = rt.sum.travelTimeInSeconds - timeAt(rt, S.along);
   const e = $('nEta'); if (e){ e.textContent = clock(new Date(Date.now() + left * 1000)); $('nTime').textContent = fmtDur(left); $('nDist').textContent = fmtDist(rt.len - S.along);
     const dl = delayLeft(rt), sub = $('nTimeSub'); sub.classList.toggle('late', dl >= 60); sub.textContent = dl >= 60 ? '+' + fmtDur(dl) + ' ' + L('delay') : L('to go'); }
@@ -831,7 +1169,7 @@ async function reroute(forced){
     const left = S.route.sum.travelTimeInSeconds - timeAt(S.route, S.along);
     const saved = left - r.sum.travelTimeInSeconds;
     if (forced || saved > 120){
-      S.route = r; S.routes = [r]; S.sel = 0; S.idx = 0; S.along = 0; S.said = {}; S.offCount = 0; attachLanes(r);
+      S.route = r; S.routes = [r]; S.sel = 0; S.idx = 0; S.along = 0; S.said = {}; S.offCount = 0; attachLanes(r); matchLive(r);
       if (!forced) toast(`${L('Faster route found. Saves')} ${fmtDur(saved)}.`, 6000);
       drawRoutes(); updateNavUi();
     }
@@ -887,10 +1225,9 @@ async function enrichPois(kind){
   await Promise.all(S.pois.slice(0, 8).map(async (p, i) => {
     try {
       if (kind === 'fuel' && p.src?.fuelPrice?.id){
-        const j = await tt('/search/2/fuelPrice.json', { fuelPrice: p.src.fuelPrice.id });
-        p.extra = (j.fuels || []).slice(0, 2).map(f => `${f.type} ${f.price?.[0]?.value ?? ''}`).join(' · ');
+        p.extra = fuelText(await extData('fuelPrice', p.src.fuelPrice.id)).slice(0, 3).join(' · ');
       } else if (kind === 'park' && p.src?.parkingAvailability?.id){
-        const j = await tt('/search/2/parkingAvailability.json', { parkingAvailability: p.src.parkingAvailability.id });
+        const j = await extData('parkingAvailability', p.src.parkingAvailability.id);
         const c = j.statuses?.[0]?.current; if (c) p.extra = c.emptySpots != null ? c.emptySpots + ' free' : (c.availability || '');
       }
       const el = document.querySelector(`[data-poi="${i}"] .s`); if (el && p.extra) el.textContent = p.extra + (p.addr ? ' · ' + p.addr : '');
@@ -904,7 +1241,7 @@ async function pickPoi(i){
     try {
       const rs = await calcRoute(0); $('toast').hidden = true;
       S.routes = rs; S.sel = 0; S.mode = back;
-      if (back === 'nav'){ S.route = rs[0]; attachLanes(rs[0]); S.idx = 0; S.along = 0; S.said = {}; S.lastRefresh = Date.now(); }
+      if (back === 'nav'){ S.route = rs[0]; attachLanes(rs[0]); matchLive(rs[0]); S.idx = 0; S.along = 0; S.said = {}; S.lastRefresh = Date.now(); }
       render(); drawRoutes(); if (back === 'preview') fitRoute(rs[0]);
     } catch (e){ S.stops = []; S.mode = back; render(); toast(e.message); }
   } else planTo(p);
@@ -913,12 +1250,12 @@ async function pickPoi(i){
 /* ---------- UI ---------- */
 function render(){
   const sh = $('sheet'), nav = base() === 'nav';
-  $('searchForm').hidden = nav; $('turn').hidden = !nav;
+  $('searchForm').hidden = nav; $('turn').hidden = !nav; $('rbar').hidden = !nav; document.body.classList.toggle('nav', nav);
   if (!nav){ $('lanes').hidden = true; lanesShown = null; }
   paintSpeed();
   let h = '';
   if (S.mode === 'results'){
-    h = `<h2>${L('Results')}<button data-act="close">${L('Close')}</button></h2>` + (S.results.length ? S.results.map((r, i) =>
+    h = `<h2>${L(S.recentShown ? 'Recent' : 'Results')}<button data-act="close">${L('Close')}</button></h2>` + (S.results.length ? S.results.map((r, i) =>
       `<button class="row" data-res="${i}"><div class="main"><div class="t">${esc(r.name)}</div><div class="s">${esc(r.addr)}</div></div><div class="r">${r.dist != null ? fmtDist(r.dist) : ''}</div></button>`).join('') : `<div class="s">${L('No matches.')}</div>`);
     if (S.sugg && S.sugg.length) h = h.replace('</h2>', '</h2><div class="chips">' + S.sugg.map((x, i) => `<button class="chip" data-sugg="${i}">${esc(x.label)}</button>`).join('') + '</div>');
   } else if (S.mode === 'pois'){
@@ -964,10 +1301,12 @@ $('sheet').addEventListener('click', e => {
 $('q').addEventListener('input', () => {
   const q = $('q').value.trim(); $('clearQ').hidden = !q; clearTimeout(searchTimer);
   S.sugg = [];
+  if (!q) showRecent();
   if (q.length >= 3) searchTimer = setTimeout(() => { runSearch(q); runAuto(q); }, 300);
 });
 $('searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('q').value.trim(); if (q){ clearTimeout(searchTimer); runSearch(q); $('q').blur(); } });
-$('clearQ').onclick = () => { $('q').value = ''; $('clearQ').hidden = true; if (S.mode === 'results'){ S.mode = 'browse'; render(); } $('q').focus(); };
+$('clearQ').onclick = () => { $('q').value = ''; $('clearQ').hidden = true; if (S.mode === 'results'){ S.mode = 'browse'; render(); } $('q').focus(); showRecent(); };
+$('q').addEventListener('focus', showRecent);
 $('bLocate').onclick = () => {
   S.following = true; $('bLocate').classList.remove('on');
   if (S.pos && S.mode !== 'nav') map.easeTo({ center: [S.pos.lon, S.pos.lat], zoom: 15, pitch: 0, bearing: 0, duration: 600 });
@@ -983,7 +1322,7 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 /* ---------- boot ---------- */
-$('stack').onclick = () => { const all = { ...ORB_ERR, ...FEAT_ERR }, k = Object.keys(all); toast(k.length ? k.map(x => x + ': ' + all[x]).join(' | ') : 'All parts are running on Orbis.', 9000); };
+$('stack').onclick = () => { const all = { ...ORB_ERR, ...FEAT_ERR, ...liveDbg() }, k = Object.keys(all); toast(k.length ? k.map(x => x + ': ' + all[x]).join(' | ') : 'All parts are running on Orbis.', 9000); };
 async function boot(){
   $('setup').hidden = true; paintMute(); paintStack();
   if (!window.maplibregl){ toast('The map library did not load. Check your connection and reload.', 10000); return; }
