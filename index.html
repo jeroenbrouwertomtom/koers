@@ -493,6 +493,19 @@ async function attachLanes(rt){
   } catch (e){ if (noAccess(e)) featFail('lanes', e); }
 }
 
+/* ---------- self-update: the phone keeps old copies, so compare with the server on every start ---------- */
+const BUILD = '20261114-6';
+async function checkUpdate(){
+  try {
+    if (base() === 'nav') return;
+    const r = await fetch(location.pathname + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+    const m = (await r.text()).match(/const BUILD = '([^']+)'/); if (!m || m[1] === BUILD) return;
+    if (new URLSearchParams(location.search).get('v') === m[1]) return;
+    location.replace(location.pathname + '?v=' + encodeURIComponent(m[1]));
+  } catch {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+
 /* ---------- recent destinations ---------- */
 function getRecent(){ try { const a = JSON.parse(store.get('recent') || '[]'); return Array.isArray(a) ? a.filter(x => x && x.name && isFinite(x.lat) && isFinite(x.lon)) : []; } catch { return []; } }
 function saveRecent(p){
@@ -1259,7 +1272,7 @@ document.addEventListener('visibilitychange', async () => {
 async function boot(){
   $('setup').hidden = true; paintMute();
   if (!window.maplibregl){ toast('The map library did not load. Check your connection and reload.', 10000); return; }
-  await initMap(); render(); startGps();
+  await initMap(); render(); startGps(); checkUpdate();
 }
 $('keyForm').addEventListener('submit', async e => {
   e.preventDefault(); const k = $('keyIn').value.trim(); if (!k) return;
